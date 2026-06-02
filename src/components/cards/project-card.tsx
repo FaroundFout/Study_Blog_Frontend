@@ -5,16 +5,19 @@ import { ArrowUpRight, Github, Link2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PROJECT_STATUS_LABELS } from "@/lib/constants";
-import { splitCommaText } from "@/lib/utils";
+import { getProjectCoverImage, splitCommaText } from "@/lib/utils";
 import type { Project } from "@/types";
 
 export function ProjectCard({ project }: { project: Project }) {
+  const href = `/projects/${encodeURIComponent(project.slug)}`;
+  const coverImage = getProjectCoverImage(project);
+
   return (
-    <Link href={`/projects/${project.slug}`} className="group block">
+    <Link href={href} className="group block">
       <Card className="page-card-shell">
         <div className="relative aspect-[16/10] overflow-hidden border-b border-border/60 bg-accent/55">
           <Image
-            src={project.coverImage || "/images/project-garden.svg"}
+            src={coverImage}
             alt={project.name}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"

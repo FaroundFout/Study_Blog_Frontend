@@ -13,6 +13,9 @@ export const adminSelectClassName =
 export const adminFieldLabelClassName =
   "text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground";
 
+export const adminMarkdownTextareaClassName =
+  "rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7 dark:border-white/10 dark:bg-[#0d1525]/95 dark:text-slate-100 dark:placeholder:text-slate-500";
+
 export type AdminAccentTone = "mint" | "amber" | "rose" | "sky" | "slate";
 
 export const adminToneSurfaceClassNames: Record<AdminAccentTone, string> = {

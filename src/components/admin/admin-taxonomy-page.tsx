@@ -324,7 +324,7 @@ export function AdminTaxonomyPage({
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex rounded-full border border-[#62d4cb]/35 bg-[#eefaf7] px-2.5 py-1 text-[11px] font-medium text-[#247c76]">
+                      <span className="inline-flex rounded-full border border-[#62d4cb]/35 bg-[#eefaf7] px-2.5 py-1 text-[11px] font-medium text-[#247c76] dark:border-[#2dd4bf]/22 dark:bg-[#0d2d33]/84 dark:text-[#98efe6]">
                         {isCategory ? "分类" : "标签"}
                       </span>
                       {"sort" in item ? (

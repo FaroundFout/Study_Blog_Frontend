@@ -5,16 +5,18 @@ import { ArrowUpRight, Clock3, Eye } from "lucide-react";
 import { TagList } from "@/components/common/tag-list";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getArticleCoverImage } from "@/lib/utils";
 import type { Article } from "@/types";
 
 export function ArticleCard({ article }: { article: Article }) {
+  const coverImage = getArticleCoverImage(article);
+
   return (
     <Link href={`/articles/${article.slug}`} className="group block">
       <Card className="page-card-shell">
         <div className="relative aspect-[16/10] overflow-hidden border-b border-border/60 bg-accent/55">
           <Image
-            src={article.coverImage || "/images/article-pattern.svg"}
+            src={coverImage}
             alt={article.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"

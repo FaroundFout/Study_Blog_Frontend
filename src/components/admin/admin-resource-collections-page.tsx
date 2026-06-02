@@ -174,7 +174,7 @@ export function AdminResourceCollectionsPage() {
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[#62d4cb]/35 bg-[#eefaf7] px-2.5 py-1 text-[11px] text-[#247c76]">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#62d4cb]/35 bg-[#eefaf7] px-2.5 py-1 text-[11px] text-[#247c76] dark:border-[#2dd4bf]/22 dark:bg-[#0d2d33]/84 dark:text-[#98efe6]">
                         <FolderTree className="h-3.5 w-3.5" />
                         资源分组
                       </span>

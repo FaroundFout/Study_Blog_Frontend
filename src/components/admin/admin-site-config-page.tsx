@@ -12,6 +12,7 @@ import {
   adminAvatarTileClassName,
   adminFieldLabelClassName,
   adminInsetPanelClassName,
+  adminMarkdownTextareaClassName,
   adminPreviewSurfaceClassName
 } from "@/components/admin/admin-page-kit";
 import { Button } from "@/components/ui/button";
@@ -349,7 +350,7 @@ export function AdminSiteConfigPage() {
                 setForm((current) => ({ ...current, aboutMeMd: event.target.value }))
               }
               placeholder="## 我是谁"
-              className="min-h-[420px] rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7 dark:border-white/10 dark:bg-[#0d1525]/95 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className={`min-h-[420px] ${adminMarkdownTextareaClassName}`}
             />
           </Card>
         </div>

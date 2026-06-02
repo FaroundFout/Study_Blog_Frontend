@@ -22,7 +22,7 @@ import {
   paginate
 } from "@/lib/mock-data";
 import { authorizedAdminRequest, normalizeAdminAccessToken } from "@/lib/admin-auth";
-import { request, requestWithFallback } from "@/lib/request";
+import { ApiError, request, requestWithFallback } from "@/lib/request";
 import { excerpt, searchContent, sortArticles, sortDiaries, sortProjects } from "@/lib/utils";
 import type {
   AdminCategoryQuery,
@@ -237,11 +237,19 @@ export async function getAllArticles(): Promise<Article[]> {
 export async function getArticleBySlug(slug: string): Promise<ArticleDetail | null> {
   const fallback = mockArticleDetails.find((item) => item.slug === slug) ?? null;
 
-  return requestWithFallback<ArticleDetail | null>(
-    `/api/public/articles/slug/${slug}`,
-    fallback,
-    { revalidate: 60 },
-  );
+  try {
+    return await requestWithFallback<ArticleDetail | null>(
+      `/api/public/articles/slug/${encodeURIComponent(slug)}`,
+      fallback,
+      { revalidate: 60 },
+    );
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 400 || error.status === 404)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getArticleById(id: number): Promise<ArticleDetail | null> {
@@ -329,11 +337,19 @@ export async function getProjects(
 export async function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
   const fallback = mockProjectDetails.find((item) => item.slug === slug) ?? null;
 
-  return requestWithFallback<ProjectDetail | null>(
-    `/api/public/projects/slug/${slug}`,
-    fallback,
-    { revalidate: 60 },
-  );
+  try {
+    return await requestWithFallback<ProjectDetail | null>(
+      `/api/public/projects/slug/${encodeURIComponent(slug)}`,
+      fallback,
+      { revalidate: 60 },
+    );
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 400 || error.status === 404)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getProjectById(id: number): Promise<ProjectDetail | null> {

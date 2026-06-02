@@ -11,6 +11,7 @@ import {
   AdminNotice,
   AdminPageSkeleton,
   adminFieldLabelClassName,
+  adminMarkdownTextareaClassName,
   adminSelectClassName
 } from "@/components/admin/admin-page-kit";
 import { AdminStateBadge } from "@/components/admin/admin-state-badge";
@@ -125,6 +126,7 @@ export function AdminProjectEditor({
   } | null>(null);
 
   const isEditing = projectId !== undefined;
+  const publicPreviewHref = form.slug ? `/projects/${encodeURIComponent(form.slug)}` : "";
 
   useEffect(() => {
     if (!hydrated || !token) {
@@ -246,7 +248,7 @@ export function AdminProjectEditor({
                   tone={projectTone(form.status)}
                 />
                 {form.isFeatured ? (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[#e7d3ab]/45 bg-[#fff7df] px-2.5 py-1 text-[11px] text-[#9a7d42]">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#e7d3ab]/45 bg-[#fff7df] px-2.5 py-1 text-[11px] text-[#9a7d42] dark:border-[#e7b95d]/24 dark:bg-[#332612]/88 dark:text-[#f4dea6]">
                     <Star className="h-3.5 w-3.5" />
                     推荐项目
                   </span>
@@ -262,8 +264,8 @@ export function AdminProjectEditor({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {form.slug ? (
-              <Link href={`/projects/${form.slug}`} target="_blank" className="inline-flex">
+            {isEditing && publicPreviewHref ? (
+              <Link href={publicPreviewHref} target="_blank" className="inline-flex">
                 <Button variant="secondary">
                   <Eye className="h-4 w-4" />
                   预览前台
@@ -338,7 +340,7 @@ export function AdminProjectEditor({
                   setForm((current) => ({ ...current, descriptionMd: event.target.value }))
                 }
                 placeholder="## 项目说明"
-                className="min-h-[520px] rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7"
+                className={`min-h-[520px] ${adminMarkdownTextareaClassName}`}
               />
             </div>
           </Card>
@@ -461,8 +463,8 @@ export function AdminProjectEditor({
               }
               className={`flex w-full items-center justify-between rounded-[1.2rem] border px-4 py-3 text-left transition-all ${
                 form.isFeatured
-                  ? "border-[#63d4cb]/45 bg-[#eefaf7] text-[#247c76]"
-                  : "border-border/70 bg-background/60 text-muted-foreground hover:text-foreground"
+                  ? "border-[#63d4cb]/45 bg-[#eefaf7] text-[#247c76] dark:border-[#2dd4bf]/22 dark:bg-[#0d2d33]/84 dark:text-[#98efe6]"
+                  : "border-border/70 bg-background/60 text-muted-foreground hover:text-foreground dark:border-white/8 dark:bg-white/[0.04] dark:text-slate-300 dark:hover:text-slate-100"
               }`}
             >
               <div>

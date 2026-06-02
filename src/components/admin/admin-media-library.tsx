@@ -55,20 +55,20 @@ function MediaCard({
       onClick={onClick}
       className={`group flex h-full flex-col overflow-hidden rounded-[1.55rem] border text-left transition-all duration-300 ${
         active
-          ? "border-[#62d4cb]/45 bg-white/92 shadow-[0_22px_36px_-30px_rgba(62,116,117,0.4)]"
-          : "border-border/65 bg-background/72 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-[0_22px_36px_-32px_rgba(62,84,89,0.24)]"
+          ? "border-[#62d4cb]/45 bg-white/92 shadow-[0_22px_36px_-30px_rgba(62,116,117,0.4)] dark:border-[#2dd4bf]/22 dark:bg-[#0d2d33]/84 dark:shadow-[0_22px_36px_-30px_rgba(2,6,23,0.76)]"
+          : "border-border/65 bg-background/72 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-[0_22px_36px_-32px_rgba(62,84,89,0.24)] dark:border-white/8 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:shadow-[0_22px_36px_-30px_rgba(2,6,23,0.78)]"
       }`}
     >
-      <div className="relative flex h-40 items-center justify-center overflow-hidden border-b border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))]">
+      <div className="relative flex h-40 items-center justify-center overflow-hidden border-b border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))] dark:border-white/8 dark:bg-[linear-gradient(135deg,rgba(13,21,37,0.96),rgba(9,16,29,0.95))]">
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={file.fileUrl} alt={file.originalName} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-white/85 text-[#66c8be] shadow-[0_18px_24px_-20px_rgba(80,120,115,0.4)]">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[1.4rem] bg-white/85 text-[#66c8be] shadow-[0_18px_24px_-20px_rgba(80,120,115,0.4)] dark:bg-white/[0.06] dark:text-[#98efe6] dark:shadow-[0_18px_24px_-20px_rgba(2,6,23,0.78)]">
             <Files className="h-8 w-8" />
           </div>
         )}
-        <div className="absolute left-3 top-3 rounded-full border border-white/65 bg-white/85 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
+        <div className="absolute left-3 top-3 rounded-full border border-white/65 bg-white/85 px-2.5 py-1 text-[11px] font-medium text-muted-foreground shadow-sm dark:border-white/10 dark:bg-[#101827]/88 dark:text-slate-300">
           {isImage ? "Image" : "File"}
         </div>
       </div>
@@ -448,7 +448,7 @@ export function AdminMediaLibrary({
               {selectedFile ? (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-[1.5rem] border border-border/65 bg-background/72">
-                    <div className="flex h-52 items-center justify-center bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))]">
+                    <div className="flex h-52 items-center justify-center bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))] dark:bg-[linear-gradient(135deg,rgba(13,21,37,0.96),rgba(9,16,29,0.95))]">
                       {looksLikeImage(selectedFile.fileUrl, selectedFile.contentType) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -457,7 +457,7 @@ export function AdminMediaLibrary({
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-white/90 text-[#66c8be] shadow-[0_20px_28px_-24px_rgba(80,120,115,0.42)]">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-[1.5rem] bg-white/90 text-[#66c8be] shadow-[0_20px_28px_-24px_rgba(80,120,115,0.42)] dark:bg-white/[0.06] dark:text-[#98efe6] dark:shadow-[0_20px_28px_-24px_rgba(2,6,23,0.78)]">
                           <FileImage className="h-8 w-8" />
                         </div>
                       )}

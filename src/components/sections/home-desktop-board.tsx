@@ -19,7 +19,7 @@ import {
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 
 import { HomeMusicPlayer } from "@/components/sections/home-music-player";
-import { cn } from "@/lib/utils";
+import { cn, getArticleCoverImage } from "@/lib/utils";
 import type { Article, HomeMusic, Project, ResourceCollection, SiteInfo } from "@/types";
 
 interface HomeDesktopBoardProps {
@@ -304,7 +304,7 @@ export function HomeDesktopBoard({
   const recommendedItem = resourceCollection?.items?.[0];
   const recommendedHref = recommendedItem?.linkUrl
     || (resourceCollection ? `/resources#${resourceCollection.slug}` : undefined)
-    || (featuredProject ? `/projects/${featuredProject.slug}` : "/resources");
+    || (featuredProject ? `/projects/${encodeURIComponent(featuredProject.slug)}` : "/resources");
   const recommendedExternal = Boolean(recommendedItem?.linkUrl);
   const isCurrentMonthView = calendarView.isSame(now, "month");
   const primaryTime = formatPrimaryTime(now, use24HourClock);
@@ -414,7 +414,7 @@ export function HomeDesktopBoard({
                 <div className="mt-4 flex gap-4">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[1rem] bg-white/72 transition-transform duration-300 group-hover:scale-[0.96] dark:bg-[#0f172a]">
                     <Image
-                      src={latestArticle.coverImage || "/images/article-pattern.svg"}
+                      src={getArticleCoverImage(latestArticle)}
                       alt={latestArticle.title}
                       width={80}
                       height={80}

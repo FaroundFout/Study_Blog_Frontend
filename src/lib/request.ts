@@ -20,8 +20,8 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+const SERVER_FALLBACK_API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 const ENABLE_MOCK = process.env.NEXT_PUBLIC_ENABLE_MOCK !== "false";
 const ALLOW_BUILD_FALLBACK = process.env.STUDY_BLOG_BUILD_PHASE === "production-build";
@@ -39,7 +39,10 @@ function shouldUseBuildFallback(error: unknown) {
 }
 
 function buildUrl(path: string, params?: FetchParams) {
-  const target = path.startsWith("http") ? new URL(path) : new URL(path, API_BASE_URL);
+  const baseUrl =
+    API_BASE_URL
+    || (typeof window !== "undefined" ? window.location.origin : SERVER_FALLBACK_API_BASE_URL);
+  const target = path.startsWith("http") ? new URL(path) : new URL(path, baseUrl);
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {

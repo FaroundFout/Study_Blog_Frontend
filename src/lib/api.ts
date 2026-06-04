@@ -145,6 +145,14 @@ function filterProjects(query: ProjectQuery = {}) {
   return sortProjects(items);
 }
 
+function encodePathSegment(value: string) {
+  try {
+    return encodeURIComponent(decodeURIComponent(value));
+  } catch {
+    return encodeURIComponent(value);
+  }
+}
+
 export async function getSiteInfo(): Promise<SiteInfo> {
   return requestWithFallback<SiteInfo>("/api/public/site-info", mockSiteInfo, {
     revalidate: 300
@@ -239,7 +247,7 @@ export async function getArticleBySlug(slug: string): Promise<ArticleDetail | nu
 
   try {
     return await requestWithFallback<ArticleDetail | null>(
-      `/api/public/articles/slug/${encodeURIComponent(slug)}`,
+      `/api/public/articles/slug/${encodePathSegment(slug)}`,
       fallback,
       { revalidate: 60 },
     );
@@ -339,7 +347,7 @@ export async function getProjectBySlug(slug: string): Promise<ProjectDetail | nu
 
   try {
     return await requestWithFallback<ProjectDetail | null>(
-      `/api/public/projects/slug/${encodeURIComponent(slug)}`,
+      `/api/public/projects/slug/${encodePathSegment(slug)}`,
       fallback,
       { revalidate: 60 },
     );

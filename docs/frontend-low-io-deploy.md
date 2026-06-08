@@ -1,35 +1,36 @@
 # Frontend Low-IO Deployment
 
-适用场景：
-- 本地先完成前端构建
-- 云服务器不执行 `npm install`、`npm ci`、`next build`
-- 服务器只做“上传单个压缩包 + 解压 + 启动”
+这份文档用于“本地构建，服务器只上传压缩包、解压、重启”的部署方式。适合云服务器磁盘 IO 较弱，或不希望在线上执行 `npm install`、`npm ci`、`next build` 的场景。
 
-## 1. 先确认构建环境
+## 1. 部署前提
 
-当前项目要求：
 - Node.js `>= 18.17.0`
+- 后端 Spring Boot 已运行，例如 `http://127.0.0.1:8080`
+- 线上域名已解析到服务器，例如 `https://wwt-lab.xyz`
+- Nginx 或其他反向代理负责把 `/api/` 转发到后端
 
-当前项目使用到的公开环境变量：
+前端公开环境变量：
+
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_SITE_URL`
 - `NEXT_PUBLIC_ENABLE_MOCK`
 
-注意：
-- 这些 `NEXT_PUBLIC_*` 变量会影响本地构建出来的产物。
-- 如果你本地打包时仍然使用 `localhost`，上传到服务器后，前端仍然会请求 `localhost`。
-- 如果云服务器是 Linux，最稳妥的做法是在本地 Linux / WSL / Docker Linux 环境中构建，尽量与线上系统保持一致。
+构建时需要注意：
 
-## 2. 本地构建
+- 浏览器端未配置 `NEXT_PUBLIC_API_BASE_URL` 时，会默认请求当前页面同源地址。
+- 服务端渲染和构建阶段未配置 `NEXT_PUBLIC_API_BASE_URL` 时，会兜底请求 `http://localhost:8080`。
+- 生产构建建议显式写入线上域名，并设置 `NEXT_PUBLIC_ENABLE_MOCK=false`。
 
-在 `frontend` 目录下执行：
+## 2. 本地生产配置
+
+在 `frontend` 目录下准备生产配置：
 
 ```powershell
-cd D:\study_blog\frontend
+cd D:\Projects\study_blog\frontend
 Copy-Item .env.local.example .env.production.local
 ```
 
-将 `.env.production.local` 改成线上值，例如：
+将 `.env.production.local` 改成线上值：
 
 ```env
 NEXT_PUBLIC_API_BASE_URL=https://wwt-lab.xyz
@@ -37,32 +38,38 @@ NEXT_PUBLIC_SITE_URL=https://wwt-lab.xyz
 NEXT_PUBLIC_ENABLE_MOCK=false
 ```
 
-然后执行：
+如果你已经在 Nginx 中把 `/api/` 反代到后端，也可以让浏览器端走同源请求；但为了避免服务端构建阶段请求 `localhost:8080`，生产构建仍建议保留 `NEXT_PUBLIC_API_BASE_URL=https://wwt-lab.xyz`。
+
+## 3. 本地构建
 
 ```powershell
 npm ci
 npm run build
 ```
 
-构建完成后，检查下面这个文件是否存在：
+构建结束后确认 standalone 文件存在：
 
 ```powershell
 Test-Path .\.next\standalone\server.js
 ```
 
-如果返回 `True`，说明可以进入打包步骤。
+返回 `True` 后进入打包步骤。
 
-## 3. 本地打包
+如果构建日志出现 `TypeError: fetch failed` 且原因是 `ECONNREFUSED`，通常是构建阶段访问不到后端。处理方式：
 
-下面这组命令只整理运行所需的最小文件：
+- 启动本地后端 `localhost:8080` 后重新构建。
+- 或在 `.env.production.local` 中把 `NEXT_PUBLIC_API_BASE_URL` 设置为线上可访问后端域名。
+
+## 4. 本地打包
+
+只打包 Next.js standalone 运行所需文件：
+
 - `.next/standalone`
 - `.next/static`
 - `public`
 
-不会把整份源码和完整 `node_modules` 上传到服务器。
-
 ```powershell
-cd D:\study_blog\frontend
+cd D:\Projects\study_blog\frontend
 
 Remove-Item .\deploy -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path .\deploy\app\.next -Force | Out-Null
@@ -74,25 +81,23 @@ Copy-Item .\public .\deploy\app\public -Recurse -Force
 Compress-Archive -Path .\deploy\app\* -DestinationPath .\deploy\frontend-standalone.zip -Force
 ```
 
-打包完成后，上传这个文件即可：
+生成文件：
 
 ```text
 frontend\deploy\frontend-standalone.zip
 ```
 
-## 4. 上传到服务器
+`deploy/app/server.js` 是构建产物，里面可能包含本机路径，正常情况下不需要提交到 Git。
 
-推荐只上传一个压缩包，避免大量小文件传输。
+## 5. 上传与解压
 
-Windows 本地推送到 Linux 服务器示例：
+上传压缩包：
 
 ```powershell
 scp .\deploy\frontend-standalone.zip user@your-server:/tmp/frontend-standalone.zip
 ```
 
-## 5. 服务器部署
-
-登录服务器后执行：
+服务器解压：
 
 ```bash
 mkdir -p /opt/study-blog/frontend/current
@@ -101,55 +106,47 @@ unzip /tmp/frontend-standalone.zip -d /opt/study-blog/frontend/current
 cd /opt/study-blog/frontend/current
 ```
 
-然后直接启动：
+直接启动验证：
 
 ```bash
 PORT=3000 HOSTNAME=0.0.0.0 NODE_ENV=production node server.js
 ```
 
-说明：
-- 这里不需要执行 `npm install`
-- 这里不需要执行 `npm run build`
-- 这里只是解压和运行，IO 很轻
+## 6. pm2 托管
 
-## 6. 使用 pm2 托管前端
-
-如果你希望用 `pm2` 守护前端进程，可以只在服务器上安装一次 `pm2`：
+服务器只需要安装一次 pm2：
 
 ```bash
 npm install -g pm2
 ```
 
-启动前端：
+启动或重建进程：
 
 ```bash
-pm2 delete study-blog-frontend
-PORT=3000 NODE_ENV=production pm2 start /root/myblog/frontend/server.js --name study-blog-frontend --cwd /root/myblog/frontend
+pm2 delete study-blog-frontend || true
+PORT=3000 HOSTNAME=0.0.0.0 NODE_ENV=production pm2 start /opt/study-blog/frontend/current/server.js --name study-blog-frontend --cwd /opt/study-blog/frontend/current
+pm2 save
 ```
 
 查看日志：
 
 ```bash
-pm2 logs study-blog-frontend
+pm2 logs study-blog-frontend --lines 50
 ```
 
-设置开机自启：
+更新发布：
 
 ```bash
-pm2 save
-pm2 startup
+pm2 stop study-blog-frontend
+rm -rf /opt/study-blog/frontend/current/*
+unzip /tmp/frontend-standalone.zip -d /opt/study-blog/frontend/current
+pm2 restart study-blog-frontend --update-env
+pm2 logs study-blog-frontend --lines 50
 ```
 
-说明：
-- `pm2` 适合用来托管前端 Node 进程，提供日志、重启和开机自启能力。
-- 这个方案同样不需要在服务器执行 `npm install`、`npm run build`。
-- 如果你已经使用 `pm2`，建议优先用这套方式，不要再同时用 `systemd` 托管同一个前端进程。
+## 7. systemd 托管
 
-## 7. 可选：使用 systemd 托管
-
-如果你不打算用 `pm2`，也可以用 `systemd`。
-
-创建服务文件：
+如果不使用 pm2，可以使用 systemd。
 
 ```bash
 cat >/etc/systemd/system/study-blog-frontend.service <<'EOF'
@@ -172,64 +169,38 @@ Group=www-data
 [Install]
 WantedBy=multi-user.target
 EOF
-```
 
-启用并启动：
-
-```bash
 systemctl daemon-reload
 systemctl enable --now study-blog-frontend
 systemctl status study-blog-frontend
 ```
 
-## 8. 更新发布
-
-后续每次发布只需要重复这条轻量链路：
-
-1. 本地修改代码
-2. 本地执行 `npm run build`
-3. 本地重新生成 `frontend-standalone.zip`
-4. 上传新压缩包到服务器
-5. 服务器解压覆盖
-6. 根据你的托管方式执行 `pm2 restart study-blog-frontend` 或 `systemctl restart study-blog-frontend`
-
-如果你使用 `pm2`，对应命令是：
-
-```bash
-pm2 stop study-blog-frontend
-find /root/myblog/frontend -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +          // 删除frontend目录下所有的文件（包含隐藏文件）
-unzip frontend-standalone.zip 
-pm2 restart study-blog-frontend --update-env
-pm2 logs study-blog-frontend --lines 50
-```
-
-如果你使用 `systemd`，对应命令是：
+systemd 更新发布：
 
 ```bash
 rm -rf /opt/study-blog/frontend/current/*
 unzip /tmp/frontend-standalone.zip -d /opt/study-blog/frontend/current
 systemctl restart study-blog-frontend
+systemctl status study-blog-frontend
 ```
 
-## 9. 不建议在服务器执行的命令
+## 8. Nginx 反向代理
 
-下面这些命令都会造成较多文件扫描、写入或依赖安装，不适合你的场景：
-
-```bash
-npm install
-npm ci
-npm run build
-next build
-```
-
-## 10. 反向代理示例
-
-如果你使用 Nginx：
+同域部署时，关键是 `/api/` 必须先代理到后端，其他路径再代理到前端。
 
 ```nginx
 server {
     listen 80;
-    server_name blog.example.com;
+    server_name wwt-lab.xyz;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -242,8 +213,15 @@ server {
 }
 ```
 
-## 11. 一句话原则
+启用 HTTPS 后，建议把 `JWT_REFRESH_COOKIE_SECURE=true` 保持为默认值；如果只是本地 HTTP 调试，则需要在后端开发配置中改为 `false`。
 
-最省服务器 IO 的方式就是：
+## 9. 不建议在线上执行
 
-本地构建 -> 本地压缩最小运行包 -> 服务器只上传、解压、重启。
+```bash
+npm install
+npm ci
+npm run build
+next build
+```
+
+这些命令会产生大量小文件读写。低 IO 部署的核心原则是：本地构建、本地压缩最小运行包，服务器只解压和重启。

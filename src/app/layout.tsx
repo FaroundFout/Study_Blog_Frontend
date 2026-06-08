@@ -147,6 +147,23 @@ const pingFangRegular = localFont({
   variable: "--font-sans-sc"
 });
 
+const wenkaiMonoTcFont = localFont({
+  src: [
+    {
+      path: "./fonts/lxgw-wenkai-mono-tc/LXGWWenKaiMonoTC-Regular.ttf",
+      weight: "400",
+      style: "normal"
+    },
+    {
+      path: "./fonts/lxgw-wenkai-mono-tc/LXGWWenKaiMonoTC-Bold.ttf",
+      weight: "700",
+      style: "normal"
+    }
+  ],
+  display: "swap",
+  variable: "--font-wenkai-mono-tc"
+});
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: {
@@ -172,7 +189,7 @@ export default async function RootLayout({
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body
-        className={`${displayFont.variable} ${uiFont.variable} ${monoFont.variable} ${markdownBodyFont.variable} ${markdownCodeFont.variable} ${markdownHeadingFont.variable} ${pingFangRegular.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
+        className={`${displayFont.variable} ${uiFont.variable} ${monoFont.variable} ${markdownBodyFont.variable} ${markdownCodeFont.variable} ${markdownHeadingFont.variable} ${pingFangRegular.variable} ${wenkaiMonoTcFont.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
         <ThemeProvider>
           <div className="relative min-h-screen">

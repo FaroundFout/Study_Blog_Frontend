@@ -89,12 +89,6 @@ const adminNavGroups = [
     title: "站点运营",
     items: [
       {
-        href: "/admin/friend-links",
-        label: "友链",
-        description: "管理站点友链信息、审核状态和排序",
-        icon: Link2
-      },
-      {
         href: "/admin/media",
         label: "媒体库",
         description: "上传文件、复制地址并在表单里复用",
@@ -199,15 +193,6 @@ function getAdminPageMeta(pathname: string) {
       title: "标签管理",
       description: "维护更细粒度的主题标签，帮助文章、项目和资源形成更清晰的连接。",
       action: { href: "/write", label: "去写文章" }
-    };
-  }
-
-  if (pathname === "/admin/friend-links" || pathname.startsWith("/admin/friend-links/")) {
-    return {
-      eyebrow: "friend links",
-      title: "友链管理",
-      description: "在审核、排序和展示之间保持整洁，确保友链页看起来像同一个花园的一部分。",
-      action: { href: "/admin/friend-links/new", label: "新增友链" }
     };
   }
 

@@ -11,7 +11,6 @@ import {
   mockCategories,
   mockDiaries,
   mockDiaryDetails,
-  mockFriendLinks,
   mockHomeData,
   mockHomeMusic,
   mockProjects,
@@ -30,8 +29,6 @@ import type {
   ChangePasswordRequest,
   AdminDiaryQuery,
   AdminDiarySavePayload,
-  AdminFriendLinkQuery,
-  AdminFriendLinkSavePayload,
   AdminHomeMusicUploadPayload,
   AdminHomeMusicQuery,
   AdminProjectQuery,
@@ -54,7 +51,6 @@ import type {
   Diary,
   DiaryDetail,
   DiaryQuery,
-  FriendLink,
   HomeData,
   HomeMusic,
   LoginPayload,
@@ -387,12 +383,6 @@ export async function getResourceItems(collectionId: number): Promise<ResourceIt
     fallback,
     { revalidate: 120 },
   );
-}
-
-export async function getFriendLinks(): Promise<FriendLink[]> {
-  return requestWithFallback<FriendLink[]>("/api/public/friend-links", mockFriendLinks, {
-    revalidate: 120
-  });
 }
 
 export async function searchSite(keyword: string): Promise<SearchResult[]> {
@@ -756,49 +746,6 @@ export async function updateAdminResourceItem(
 
 export async function deleteAdminResourceItem(token: string, id: number) {
   return adminRequest<void>(token, `/api/admin/resource-items/${id}`, {
-    method: "DELETE"
-  });
-}
-
-export async function getAdminFriendLinks(
-  token: string,
-  query: AdminFriendLinkQuery = {},
-): Promise<PageResponse<FriendLink>> {
-  return adminRequest<PageResponse<FriendLink>>(token, "/api/admin/friend-links", {
-    params: adminListParams(query.pageNum ?? 1, query.pageSize ?? 10, {
-      keyword: query.keyword,
-      status: query.status
-    })
-  });
-}
-
-export async function getAdminFriendLinkById(token: string, id: number): Promise<FriendLink | null> {
-  return adminRequest<FriendLink | null>(token, `/api/admin/friend-links/${id}`);
-}
-
-export async function createAdminFriendLink(
-  token: string,
-  payload: AdminFriendLinkSavePayload,
-) {
-  return adminRequest<number>(token, "/api/admin/friend-links", {
-    method: "POST",
-    body: payload,
-  });
-}
-
-export async function updateAdminFriendLink(
-  token: string,
-  id: number,
-  payload: AdminFriendLinkSavePayload,
-) {
-  return adminRequest<void>(token, `/api/admin/friend-links/${id}`, {
-    method: "PUT",
-    body: payload,
-  });
-}
-
-export async function deleteAdminFriendLink(token: string, id: number) {
-  return adminRequest<void>(token, `/api/admin/friend-links/${id}`, {
     method: "DELETE"
   });
 }

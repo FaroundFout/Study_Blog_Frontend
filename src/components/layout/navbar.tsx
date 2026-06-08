@@ -197,7 +197,7 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
             </div>
             <div className="hidden sm:block">
               <p className="text-sm font-semibold text-foreground">{siteInfo.siteName || "Study Garden"}</p>
-              <p className="text-xs text-muted-foreground">个人博客 / 友链 / 学习记录</p>
+              <p className="text-xs text-muted-foreground">个人博客 / 学习记录</p>
             </div>
           </div>
         </Link>

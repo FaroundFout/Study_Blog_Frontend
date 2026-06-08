@@ -7,7 +7,6 @@ export interface ApiResponse<T> {
 export type ArticleStatus = "draft" | "published" | "private";
 export type DiaryVisibility = "public" | "private";
 export type ProjectStatus = "planning" | "ongoing" | "completed" | "active" | "archived" | "paused";
-export type FriendLinkStatus = "pending" | "approved" | "rejected";
 
 export interface PageResponse<T> {
   total: number;
@@ -138,17 +137,6 @@ export interface ResourceCollection {
   items?: ResourceItem[];
 }
 
-export interface FriendLink {
-  id: number;
-  siteName: string;
-  siteUrl: string;
-  avatar?: string;
-  description: string;
-  status?: FriendLinkStatus | string;
-  sort?: number;
-  createdAt?: string;
-}
-
 export interface ArchiveRecord {
   archiveMonth: string;
   count: number;
@@ -169,7 +157,6 @@ export interface HomeData {
   latestDiaries: Diary[];
   featuredProjects: Project[];
   resourceCollections: ResourceCollection[];
-  friendLinks: FriendLink[];
 }
 
 export interface HomeMusic {
@@ -375,22 +362,6 @@ export interface AdminResourceItemSavePayload {
   coverImage?: string;
   sourceName?: string;
   tagsText?: string;
-  sort?: number;
-}
-
-export interface AdminFriendLinkQuery {
-  pageNum?: number;
-  pageSize?: number;
-  keyword?: string;
-  status?: FriendLinkStatus;
-}
-
-export interface AdminFriendLinkSavePayload {
-  siteName: string;
-  siteUrl: string;
-  avatar?: string;
-  description?: string;
-  status: FriendLinkStatus;
   sort?: number;
 }
 

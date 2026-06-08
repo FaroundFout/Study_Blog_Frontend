@@ -9,7 +9,6 @@ import {
   BookText,
   ChevronLeft,
   ChevronRight,
-  Globe2,
   PanelsTopLeft,
   PenLine,
   Sparkles,
@@ -325,8 +324,7 @@ export function HomeDesktopBoard({
     { href: "/articles", label: "近期文章", icon: BookText, active: true },
     { href: "/projects", label: "我的项目", icon: PanelsTopLeft },
     { href: "/about", label: "关于网站", icon: UserCircle2 },
-    { href: "/resources", label: "推荐分享", icon: Star },
-    { href: "/bloggers", label: "优秀博主", icon: Globe2 }
+    { href: "/resources", label: "推荐分享", icon: Star }
   ];
 
   const handleMonthChange = (direction: 1 | -1) => {

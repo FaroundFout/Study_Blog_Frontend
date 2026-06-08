@@ -9,7 +9,6 @@ export const NAV_ITEMS = [
   { href: "/projects", label: "项目" },
   { href: "/resources", label: "资源" },
   { href: "/archives", label: "归档" },
-  { href: "/bloggers", label: "友链" },
   { href: "/about", label: "关于" }
 ] as const;
 
@@ -39,12 +38,6 @@ export const ARTICLE_STATUS_LABELS: Record<string, string> = {
 export const DIARY_VISIBILITY_LABELS: Record<string, string> = {
   public: "公开",
   private: "私密"
-};
-
-export const FRIEND_LINK_STATUS_LABELS: Record<string, string> = {
-  pending: "待审核",
-  approved: "已通过",
-  rejected: "已拒绝"
 };
 
 export const MOOD_LABELS: Record<string, string> = {

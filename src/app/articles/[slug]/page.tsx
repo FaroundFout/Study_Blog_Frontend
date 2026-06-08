@@ -70,7 +70,7 @@ export default async function ArticleDetailPage({ params }: ArticleDetailPagePro
             <ArticleBottomNavigation navigation={navigation} />
           </article>
 
-          <ArticleRightRail headings={headings} navigation={navigation} />
+          <ArticleRightRail headings={headings} />
         </div>
       </div>
     </div>
@@ -365,11 +365,9 @@ function ArticleBody({ content }: { content: string }) {
 }
 
 function ArticleRightRail({
-  headings,
-  navigation
+  headings
 }: {
   headings: TocHeading[];
-  navigation: ArticleNavigation;
 }) {
   return (
     <aside className="article-reader-rail article-reader-right-rail" aria-label="页面目录">
@@ -380,12 +378,6 @@ function ArticleRightRail({
         </div>
         <TocList headings={headings} emptyText="这篇文章还没有目录节点。" />
       </div>
-
-      <nav className="article-reader-rail-section" aria-label="文章前后导航">
-        <p className="article-reader-rail-label">Backlinks</p>
-        <RailArticleLink label="上一篇" article={navigation.prev} />
-        <RailArticleLink label="下一篇" article={navigation.next} />
-      </nav>
     </aside>
   );
 }

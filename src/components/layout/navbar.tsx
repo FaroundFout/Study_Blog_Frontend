@@ -16,6 +16,7 @@ import type { SiteInfo } from "@/types";
 export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const isArticleReader = pathname.startsWith("/articles/");
   const isAdmin = pathname.startsWith("/admin");
   const isWriteStudio = pathname.startsWith("/write");
   const [open, setOpen] = useState(false);
@@ -174,13 +175,25 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
     <header
       className={cn(
         "sticky top-0 z-50 border-b border-transparent transition-colors",
-        scrolled ? "border-border/70 bg-background/88 backdrop-blur-xl" : "bg-transparent",
+        isArticleReader
+          ? [
+              "article-reader-navbar",
+              scrolled ? "article-reader-navbar-scrolled" : "article-reader-navbar-top"
+            ]
+          : scrolled
+            ? "border-border/70 bg-background/88 backdrop-blur-xl"
+            : "bg-transparent",
       )}
     >
       <div className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-4 px-5 py-4 md:px-7">
         <Link href="/" className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[1rem] border border-border/80 bg-card/95 text-sm font-semibold text-foreground shadow-[0_10px_24px_-22px_rgba(58,67,92,0.45)]">
+            <div
+              className={cn(
+                "relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-[1rem] border border-border/80 bg-card/95 text-sm font-semibold text-foreground shadow-[0_10px_24px_-22px_rgba(58,67,92,0.45)]",
+                isArticleReader && "article-reader-navbar-logo",
+              )}
+            >
               {brandLogoSrc && !brandLogoFailed ? (
                 <Image
                   src={brandLogoSrc}
@@ -211,6 +224,7 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
                 href={item.href}
                 className={cn(
                   "text-sm transition-colors",
+                  isArticleReader && "article-reader-navbar-link",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -221,30 +235,52 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
         </nav>
 
         <div className="flex items-center gap-2.5 md:gap-3">
-          <div className="hidden items-center gap-2 rounded-full border border-white/70 bg-white/56 p-1.5 shadow-[0_16px_34px_-26px_rgba(84,104,114,0.32)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1220]/72 dark:shadow-[0_20px_40px_-28px_rgba(2,6,23,0.82)] sm:flex">
+          <div
+            className={cn(
+              "hidden items-center gap-2 rounded-full border border-white/70 bg-white/56 p-1.5 shadow-[0_16px_34px_-26px_rgba(84,104,114,0.32)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1220]/72 dark:shadow-[0_20px_40px_-28px_rgba(2,6,23,0.82)] sm:flex",
+              isArticleReader && "article-reader-navbar-toolbar",
+            )}
+          >
             <Link href="/search" className="inline-flex" title="搜索">
-              <Button variant="secondary" size="icon" aria-label="搜索" className={toolbarButtonClass}>
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label="搜索"
+                className={cn(toolbarButtonClass, isArticleReader && "article-reader-navbar-toolbutton")}
+              >
                 <Search className="h-[1.05rem] w-[1.05rem] stroke-[1.9] md:h-[1.12rem] md:w-[1.12rem]" />
               </Button>
             </Link>
             <ThemeToggle
               title="切换主题"
-              className={toolbarButtonClass}
+              className={cn(toolbarButtonClass, isArticleReader && "article-reader-navbar-toolbutton")}
               iconClassName="h-[1.05rem] w-[1.05rem] stroke-[1.9] md:h-[1.12rem] md:w-[1.12rem]"
             />
           </div>
           <ThemeToggle
             title="切换主题"
-            className={cn("sm:hidden", toolbarButtonClass, "h-11 w-11 md:h-11 md:w-11")}
+            className={cn(
+              "sm:hidden",
+              toolbarButtonClass,
+              "h-11 w-11 md:h-11 md:w-11",
+              isArticleReader && "article-reader-navbar-toolbutton",
+            )}
             iconClassName="h-[1.05rem] w-[1.05rem] stroke-[1.9]"
           />
           <Link href="/admin/login" className="hidden md:inline-flex">
-            <Button variant="secondary">管理入口</Button>
+            <Button variant="secondary" className={cn(isArticleReader && "article-reader-navbar-admin-button")}>
+              管理入口
+            </Button>
           </Link>
           <Button
             variant="secondary"
             size="icon"
-            className={cn("lg:hidden", toolbarButtonClass, "h-11 w-11 md:h-11 md:w-11")}
+            className={cn(
+              "lg:hidden",
+              toolbarButtonClass,
+              "h-11 w-11 md:h-11 md:w-11",
+              isArticleReader && "article-reader-navbar-toolbutton",
+            )}
             aria-label="打开菜单"
             onClick={() => setOpen((prev) => !prev)}
           >
@@ -263,7 +299,10 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden border-t border-border/70 bg-background/94 lg:hidden"
+            className={cn(
+              "overflow-hidden border-t border-border/70 bg-background/94 lg:hidden",
+              isArticleReader && "article-reader-navbar-mobile-menu",
+            )}
           >
             <div className="mx-auto flex max-w-[1180px] flex-col gap-2 px-5 py-4 md:px-7">
               {NAV_ITEMS.map((item) => {
@@ -274,6 +313,7 @@ export function Navbar({ siteInfo }: { siteInfo: SiteInfo }) {
                     href={item.href}
                     className={cn(
                       "rounded-[1rem] px-4 py-3 text-sm transition-colors",
+                      isArticleReader && "article-reader-navbar-mobile-link",
                       active
                         ? "bg-accent text-foreground"
                         : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",

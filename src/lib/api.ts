@@ -11,7 +11,6 @@ import {
   mockCategories,
   mockDiaries,
   mockDiaryDetails,
-  mockFriendLinks,
   mockHomeData,
   mockHomeMusic,
   mockProjects,
@@ -21,8 +20,12 @@ import {
   mockTags,
   paginate
 } from "@/lib/mock-data";
-import { authorizedAdminRequest, normalizeAdminAccessToken } from "@/lib/admin-auth";
-import { request, requestWithFallback } from "@/lib/request";
+import {
+  authorizedAdminRequest,
+  authorizedAdminUploadRequest,
+  normalizeAdminAccessToken
+} from "@/lib/admin-auth";
+import { ApiError, request, requestWithFallback } from "@/lib/request";
 import { excerpt, searchContent, sortArticles, sortDiaries, sortProjects } from "@/lib/utils";
 import type {
   AdminCategoryQuery,
@@ -30,9 +33,8 @@ import type {
   ChangePasswordRequest,
   AdminDiaryQuery,
   AdminDiarySavePayload,
-  AdminFriendLinkQuery,
-  AdminFriendLinkSavePayload,
   AdminHomeMusicUploadPayload,
+  AdminUploadRequestOptions,
   AdminHomeMusicQuery,
   AdminProjectQuery,
   AdminProjectSavePayload,
@@ -54,7 +56,6 @@ import type {
   Diary,
   DiaryDetail,
   DiaryQuery,
-  FriendLink,
   HomeData,
   HomeMusic,
   LoginPayload,
@@ -143,6 +144,14 @@ function filterProjects(query: ProjectQuery = {}) {
   }
 
   return sortProjects(items);
+}
+
+function encodePathSegment(value: string) {
+  try {
+    return encodeURIComponent(decodeURIComponent(value));
+  } catch {
+    return encodeURIComponent(value);
+  }
 }
 
 export async function getSiteInfo(): Promise<SiteInfo> {
@@ -237,11 +246,19 @@ export async function getAllArticles(): Promise<Article[]> {
 export async function getArticleBySlug(slug: string): Promise<ArticleDetail | null> {
   const fallback = mockArticleDetails.find((item) => item.slug === slug) ?? null;
 
-  return requestWithFallback<ArticleDetail | null>(
-    `/api/public/articles/slug/${slug}`,
-    fallback,
-    { revalidate: 60 },
-  );
+  try {
+    return await requestWithFallback<ArticleDetail | null>(
+      `/api/public/articles/slug/${encodePathSegment(slug)}`,
+      fallback,
+      { revalidate: 60 },
+    );
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 400 || error.status === 404)) {
+      return null;
+    }
+
+    throw error;
+  }
 }
 
 export async function getArticleById(id: number): Promise<ArticleDetail | null> {
@@ -280,7 +297,9 @@ export async function getDiaries(
   return requestWithFallback<PageResponse<Diary>>("/api/public/diaries", fallback, {
     params: {
       pageNum: query.pageNum ?? 1,
-      pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE
+      pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE,
+      keyword: query.keyword,
+      month: query.month
     },
     revalidate: 60
   });
@@ -320,20 +339,71 @@ export async function getProjects(
     params: {
       pageNum: query.pageNum ?? 1,
       pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE,
-      isFeatured: query.featured ? 1 : undefined
+      isFeatured: query.featured ? 1 : undefined,
+      keyword: query.keyword,
+      status: query.status
     },
     revalidate: 60
   });
 }
 
+export async function getDiaryNavigation(id: number) {
+  const diaries = await getAllDiaries();
+  const currentIndex = diaries.findIndex((item) => item.id === id);
+
+  if (currentIndex === -1) {
+    return { prev: null, next: null };
+  }
+
+  return {
+    prev: currentIndex > 0 ? diaries[currentIndex - 1] : null,
+    next: currentIndex < diaries.length - 1 ? diaries[currentIndex + 1] : null
+  };
+}
+
+export async function getAllProjects() {
+  const remote = await requestWithFallback<PageResponse<Project>>(
+    "/api/public/projects",
+    paginate(sortProjects(mockProjects), 1, CONTENT_FETCH_SIZE),
+    {
+      params: { pageNum: 1, pageSize: CONTENT_FETCH_SIZE },
+      revalidate: 60
+    },
+  );
+
+  return sortProjects(remote.list);
+}
+
 export async function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
   const fallback = mockProjectDetails.find((item) => item.slug === slug) ?? null;
 
-  return requestWithFallback<ProjectDetail | null>(
-    `/api/public/projects/slug/${slug}`,
-    fallback,
-    { revalidate: 60 },
-  );
+  try {
+    return await requestWithFallback<ProjectDetail | null>(
+      `/api/public/projects/slug/${encodePathSegment(slug)}`,
+      fallback,
+      { revalidate: 60 },
+    );
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 400 || error.status === 404)) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+export async function getProjectNavigation(slug: string) {
+  const projects = await getAllProjects();
+  const currentIndex = projects.findIndex((item) => item.slug === slug);
+
+  if (currentIndex === -1) {
+    return { prev: null, next: null };
+  }
+
+  return {
+    prev: currentIndex > 0 ? projects[currentIndex - 1] : null,
+    next: currentIndex < projects.length - 1 ? projects[currentIndex + 1] : null
+  };
 }
 
 export async function getProjectById(id: number): Promise<ProjectDetail | null> {
@@ -363,12 +433,6 @@ export async function getResourceItems(collectionId: number): Promise<ResourceIt
     fallback,
     { revalidate: 120 },
   );
-}
-
-export async function getFriendLinks(): Promise<FriendLink[]> {
-  return requestWithFallback<FriendLink[]>("/api/public/friend-links", mockFriendLinks, {
-    revalidate: 120
-  });
 }
 
 export async function searchSite(keyword: string): Promise<SearchResult[]> {
@@ -736,49 +800,6 @@ export async function deleteAdminResourceItem(token: string, id: number) {
   });
 }
 
-export async function getAdminFriendLinks(
-  token: string,
-  query: AdminFriendLinkQuery = {},
-): Promise<PageResponse<FriendLink>> {
-  return adminRequest<PageResponse<FriendLink>>(token, "/api/admin/friend-links", {
-    params: adminListParams(query.pageNum ?? 1, query.pageSize ?? 10, {
-      keyword: query.keyword,
-      status: query.status
-    })
-  });
-}
-
-export async function getAdminFriendLinkById(token: string, id: number): Promise<FriendLink | null> {
-  return adminRequest<FriendLink | null>(token, `/api/admin/friend-links/${id}`);
-}
-
-export async function createAdminFriendLink(
-  token: string,
-  payload: AdminFriendLinkSavePayload,
-) {
-  return adminRequest<number>(token, "/api/admin/friend-links", {
-    method: "POST",
-    body: payload,
-  });
-}
-
-export async function updateAdminFriendLink(
-  token: string,
-  id: number,
-  payload: AdminFriendLinkSavePayload,
-) {
-  return adminRequest<void>(token, `/api/admin/friend-links/${id}`, {
-    method: "PUT",
-    body: payload,
-  });
-}
-
-export async function deleteAdminFriendLink(token: string, id: number) {
-  return adminRequest<void>(token, `/api/admin/friend-links/${id}`, {
-    method: "DELETE"
-  });
-}
-
 export async function getAdminSiteConfig(token: string): Promise<SiteInfo> {
   return adminRequest<SiteInfo>(token, "/api/admin/site-config");
 }
@@ -796,6 +817,7 @@ export async function updateAdminSiteConfig(
 export async function uploadAdminHomeMusic(
   token: string,
   payload: AdminHomeMusicUploadPayload,
+  options: AdminUploadRequestOptions = {},
 ) {
   const formData = new FormData();
   formData.append("title", payload.title);
@@ -818,10 +840,12 @@ export async function uploadAdminHomeMusic(
     formData.append("status", payload.status);
   }
 
-  return adminRequest<HomeMusic>(token, "/api/admin/home/music", {
-    method: "POST",
-    body: formData,
-  });
+  return authorizedAdminUploadRequest<HomeMusic>(
+    "/api/admin/home/music",
+    token,
+    formData,
+    options,
+  );
 }
 
 export async function getAdminHomeMusicPage(
@@ -857,10 +881,12 @@ export async function uploadAdminFile(
     formData.append("directory", options.directory);
   }
 
-  return adminRequest<UploadedFilePayload>(token, "/api/admin/upload", {
-    method: "POST",
-    body: formData,
-  });
+  return authorizedAdminUploadRequest<UploadedFilePayload>(
+    "/api/admin/upload",
+    token,
+    formData,
+    options,
+  );
 }
 
 export async function getAdminUploadedFiles(
@@ -885,10 +911,6 @@ export async function deleteAdminUploadedFile(token: string, id: number) {
   return adminRequest<void>(token, `/api/admin/upload/${id}`, {
     method: "DELETE"
   });
-}
-
-export function getFeaturedArticle() {
-  return sortArticles(mockArticles).find((item) => item.isTop === 1) ?? mockArticles[0];
 }
 
 export function getDiaryPreviewText(diary: Diary | DiaryDetail) {

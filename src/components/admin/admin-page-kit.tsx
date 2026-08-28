@@ -1,10 +1,11 @@
 "use client";
 
 import { Loader2, X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { Card } from "@/components/ui/card";
+import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { cn } from "@/lib/utils";
 
 export const adminSelectClassName =
@@ -12,6 +13,9 @@ export const adminSelectClassName =
 
 export const adminFieldLabelClassName =
   "text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground";
+
+export const adminMarkdownTextareaClassName =
+  "rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7 dark:border-white/10 dark:bg-[#0d1525]/95 dark:text-slate-100 dark:placeholder:text-slate-500";
 
 export type AdminAccentTone = "mint" | "amber" | "rose" | "sky" | "slate";
 
@@ -68,15 +72,15 @@ export function AdminPageSkeleton({
 }) {
   return (
     <div className="space-y-6">
-      <Card className="animate-pulse p-6">
-        <div className="h-4 w-28 rounded-full bg-accent/85" />
-        <div className="mt-4 h-10 w-64 rounded-full bg-accent/85" />
-        <div className="mt-4 h-4 w-full max-w-2xl rounded-full bg-accent/65" />
+      <Card className="p-6">
+        <LoadingSkeleton className="h-4 w-28 rounded-full" />
+        <LoadingSkeleton className="mt-4 h-10 w-64 rounded-full" />
+        <LoadingSkeleton className="mt-4 h-4 w-full max-w-2xl rounded-full" />
       </Card>
       {Array.from({ length: sections }).map((_, index) => (
-        <Card key={index} className="animate-pulse p-6">
-          <div className="h-10 rounded-[1.2rem] bg-accent/80" />
-          <div className="mt-4 h-24 rounded-[1.5rem] bg-accent/65" />
+        <Card key={index} className="p-6">
+          <LoadingSkeleton className="h-10 rounded-[1.2rem]" />
+          <LoadingSkeleton className="mt-4 h-24 rounded-[1.5rem]" />
         </Card>
       ))}
     </div>
@@ -164,6 +168,9 @@ export function AdminKeyValueList({
   );
 }
 
+let openModalCount = 0;
+let originalBodyOverflow = "";
+
 export function AdminModal({
   open,
   onClose,
@@ -181,38 +188,54 @@ export function AdminModal({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
   useEffect(() => {
-    if (!open) {
+    const dialog = dialogRef.current;
+    if (!open || !dialog) {
       return;
     }
 
-    const originalOverflow = document.body.style.overflow;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (openModalCount === 0) originalBodyOverflow = document.body.style.overflow;
+    openModalCount += 1;
     document.body.style.overflow = "hidden";
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
+    // Native modal dialogs provide focus containment and make the background inert.
+    dialog.showModal();
+    closeButtonRef.current?.focus({ preventScroll: true });
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener("keydown", handleKeyDown);
+      dialog.close();
+      openModalCount -= 1;
+      if (openModalCount === 0) document.body.style.overflow = originalBodyOverflow;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
-  }, [onClose, open]);
+  }, [open]);
 
   if (!open) {
     return null;
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[rgba(33,40,53,0.28)] px-4 py-6 backdrop-blur-sm md:py-8">
+    <dialog
+      ref={dialogRef}
+      aria-modal="true"
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      className="fixed inset-0 m-0 h-[100dvh] max-h-none w-screen max-w-none overflow-y-auto overscroll-contain border-0 bg-[rgba(33,40,53,0.28)] px-4 py-6 text-foreground backdrop-blur-sm backdrop:bg-transparent md:py-8"
+    >
       <div className="flex min-h-full items-start justify-center md:items-center">
         <button
           type="button"
-          aria-label="Close modal"
+          aria-hidden="true"
+          tabIndex={-1}
           className="absolute inset-0 cursor-default"
           onClick={onClose}
         />
@@ -226,28 +249,30 @@ export function AdminModal({
         >
           <div className="flex items-start justify-between gap-4 border-b border-border/60 px-6 py-5 md:px-7">
             <div className="space-y-1">
-              <p className="text-xl font-semibold tracking-tight text-foreground">{title}</p>
+              <h2 id={titleId} className="text-xl font-semibold tracking-tight text-foreground">{title}</h2>
               {description ? (
-                <p className="max-w-3xl text-sm leading-7 text-muted-foreground">
+                <p id={descriptionId} className="max-w-3xl text-sm leading-7 text-muted-foreground">
                   {description}
                 </p>
               ) : null}
             </div>
             <button
+              ref={closeButtonRef}
               type="button"
+              aria-label="关闭弹窗"
               onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-background/78 text-muted-foreground transition-colors hover:text-foreground"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/78 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <X className="h-4 w-4" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 md:px-7">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-6 md:px-7">{children}</div>
           {footer ? (
             <div className="border-t border-border/60 px-6 py-4 md:px-7">{footer}</div>
           ) : null}
         </div>
       </div>
-    </div>,
+    </dialog>,
     document.body,
   );
 }

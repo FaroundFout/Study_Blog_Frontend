@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import {
   BookCopy,
   ExternalLink,
@@ -14,112 +12,69 @@ import {
   Library,
   Link2,
   LogOut,
+  Menu,
   Music4,
   NotebookPen,
   ShieldCheck,
-  Sparkles,
+  Sprout,
   Tag,
-  Wrench
+  Wrench,
+  X
 } from "lucide-react";
-import { useEffect, useMemo, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { adminDangerGhostButtonClassName } from "@/components/admin/admin-page-kit";
+import { LoadingSkeleton } from "@/components/common/loading-skeleton";
+import { Button } from "@/components/ui/button";
 import { logoutAdmin } from "@/lib/api";
 import { ADMIN_AUTH_CHANGED_EVENT } from "@/lib/auth-storage";
+import { confirmUnsavedChanges } from "@/lib/unsaved-changes";
 import { cn, initialLetters } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
+import type { SiteInfo } from "@/types";
+
+import styles from "./admin-dashboard-shell.module.css";
 
 const adminNavGroups = [
   {
-    title: "内容管理",
+    title: "内容",
     items: [
-      {
-        href: "/admin/articles",
-        label: "文章",
-        description: "筛选、编辑、发布和维护站点文章",
-        icon: BookCopy
-      },
-      {
-        href: "/admin/diaries",
-        label: "学习日记",
-        description: "记录每日学习内容、情绪和投入时长",
-        icon: NotebookPen
-      },
-      {
-        href: "/admin/projects",
-        label: "项目",
-        description: "维护项目简介、封面、链接和状态",
-        icon: Layers3
-      }
+      { code: "01", href: "/admin/articles", label: "文章", description: "筛选、编辑与发布", icon: BookCopy },
+      { code: "02", href: "/admin/diaries", label: "学习日记", description: "记录日常学习轨迹", icon: NotebookPen },
+      { code: "03", href: "/admin/projects", label: "项目", description: "维护项目档案", icon: Layers3 }
     ]
   },
   {
-    title: "结构整理",
+    title: "结构",
     items: [
-      {
-        href: "/admin/resource-collections",
-        label: "资源分组",
-        description: "整理资源地图的分组结构与排序",
-        icon: Library
-      },
-      {
-        href: "/admin/resource-items",
-        label: "资源项",
-        description: "录入单条链接、来源、封面和标签",
-        icon: Link2
-      },
-      {
-        href: "/admin/categories",
-        label: "分类",
-        description: "维护文章分类的命名、说明和排序",
-        icon: FolderTree
-      },
-      {
-        href: "/admin/tags",
-        label: "标签",
-        description: "维护标签系统，支撑文章和项目检索",
-        icon: Tag
-      }
+      { code: "04", href: "/admin/resource-collections", label: "资源分组", description: "整理资源地图", icon: Library },
+      { code: "05", href: "/admin/resource-items", label: "资源项", description: "维护资源链接", icon: Link2 },
+      { code: "06", href: "/admin/categories", label: "分类", description: "建立栏目结构", icon: FolderTree },
+      { code: "07", href: "/admin/tags", label: "标签", description: "维护主题索引", icon: Tag }
     ]
   },
   {
-    title: "站点运营",
+    title: "站点",
     items: [
-      {
-        href: "/admin/friend-links",
-        label: "友链",
-        description: "管理站点友链信息、审核状态和排序",
-        icon: Link2
-      },
-      {
-        href: "/admin/media",
-        label: "媒体库",
-        description: "上传文件、复制地址并在表单里复用",
-        icon: FileImage
-      },
-      {
-        href: "/admin/home-music",
-        label: "首页音乐",
-        description: "上传、预览并维护首页播放器使用的歌曲与封面资源。",
-        icon: Music4
-      },
-      {
-        href: "/admin/site",
-        label: "站点配置",
-        description: "维护站点标题、副标题、公告和头像等",
-        icon: Wrench
-      },
-      {
-        href: "/admin/account-security",
-        label: "账号安全",
-        description: "更新当前管理员密码，并在成功后重新建立安全登录会话",
-        icon: KeyRound
-      }
+      { code: "08", href: "/admin/media", label: "媒体库", description: "上传与复用文件", icon: FileImage },
+      { code: "09", href: "/admin/home-music", label: "首页音乐", description: "维护播放器内容", icon: Music4 },
+      { code: "10", href: "/admin/site", label: "站点配置", description: "统一公开页信息", icon: Wrench },
+      { code: "11", href: "/admin/account-security", label: "账号安全", description: "管理登录密码", icon: KeyRound }
     ]
   }
+] as const;
+
+const topNavItems = [
+  adminNavGroups[0].items[0],
+  adminNavGroups[0].items[1],
+  adminNavGroups[0].items[2],
+  adminNavGroups[1].items[0],
+  adminNavGroups[2].items[0],
+  adminNavGroups[2].items[2]
 ] as const;
 
 function isNavItemActive(pathname: string, href: string) {
@@ -128,333 +83,205 @@ function isNavItemActive(pathname: string, href: string) {
 
 function getAdminPageMeta(pathname: string) {
   if (pathname === "/admin/articles/new") {
-    return {
-      eyebrow: "article composer",
-      title: "写新文章",
-      description: "保持和前台一致的明亮卡片质感，同时把写作、预览、分类、标签和封面编辑收进一块工作区。",
-      action: { href: "/admin/articles", label: "返回文章列表" }
-    };
+    return { index: "01", eyebrow: "ARTICLE COMPOSER", title: "写新文章", description: "在同一张编辑台上完成正文、预览、分类、标签、封面与发布状态。", action: { href: "/admin/articles", label: "返回文章目录" } };
   }
 
   if (/^\/admin\/articles\/\d+$/.test(pathname)) {
-    return {
-      eyebrow: "article editor",
-      title: "编辑文章",
-      description: "继续打磨旧文章，或快速修正文案、封面、发布时间和文章状态。",
-      action: { href: "/admin/articles", label: "返回文章列表" }
-    };
+    return { index: "01", eyebrow: "ARTICLE EDITOR", title: "编辑文章", description: "修正文案、封面、发布时间和可见状态，并保持公开文章页同步。", action: { href: "/admin/articles", label: "返回文章目录" } };
   }
 
   if (pathname === "/admin/diaries" || pathname.startsWith("/admin/diaries/")) {
-    return {
-      eyebrow: "study diary",
-      title: "学习日记管理",
-      description: "把每天的学习记录、情绪与时长整理成可回看、可筛选、可持续积累的时间线。",
-      action: { href: "/admin/diaries/new", label: "写一篇日记" }
-    };
+    return { index: "02", eyebrow: "STUDY DIARY", title: "学习日记管理", description: "把每日学习内容、心情与投入时长整理成可持续回看的时间线。", action: { href: "/admin/diaries/new", label: "写一篇日记" } };
   }
 
   if (pathname === "/admin/projects" || pathname.startsWith("/admin/projects/")) {
-    return {
-      eyebrow: "project deck",
-      title: "项目管理",
-      description: "维护项目卡片、封面、技术栈和状态，让前台项目页保持完整而清爽。",
-      action: { href: "/admin/projects/new", label: "新建项目" }
-    };
+    return { index: "03", eyebrow: "PROJECT DECK", title: "项目管理", description: "维护项目档案、技术栈、链接与阶段，让前台项目目录始终完整。", action: { href: "/admin/projects/new", label: "新建项目" } };
   }
 
-  if (
-    pathname === "/admin/resource-collections" ||
-    pathname.startsWith("/admin/resource-collections/")
-  ) {
-    return {
-      eyebrow: "resource atlas",
-      title: "资源分组管理",
-      description: "整理资源地图的分组结构与排序，让外部链接不再只是松散收藏。",
-      action: { href: "/admin/resource-collections/new", label: "新建分组" }
-    };
+  if (pathname === "/admin/resource-collections" || pathname.startsWith("/admin/resource-collections/")) {
+    return { index: "04", eyebrow: "RESOURCE ATLAS", title: "资源分组管理", description: "整理资源地图的分组、说明与排序，建立清晰的收藏结构。", action: { href: "/admin/resource-collections/new", label: "新建分组" } };
   }
 
   if (pathname === "/admin/resource-items" || pathname.startsWith("/admin/resource-items/")) {
-    return {
-      eyebrow: "resource items",
-      title: "资源项管理",
-      description: "维护单条资源的标题、来源、封面、标签和分组归属，支撑资源页的完整展示。",
-      action: { href: "/admin/resource-items/new", label: "新建资源项" }
-    };
+    return { index: "05", eyebrow: "RESOURCE ITEMS", title: "资源项管理", description: "维护单条资源的标题、来源、封面、标签和分组归属。", action: { href: "/admin/resource-items/new", label: "新建资源项" } };
   }
 
   if (pathname === "/admin/categories") {
-    return {
-      eyebrow: "taxonomy",
-      title: "分类管理",
-      description: "为文章内容建立稳定的栏目结构，方便筛选、导航和后续扩展。",
-      action: { href: "/write", label: "去写文章" }
-    };
+    return { index: "06", eyebrow: "TAXONOMY", title: "分类管理", description: "为文章建立稳定栏目，支撑公开页筛选、导航和后续扩展。", action: { href: "/write", label: "去写文章" } };
   }
 
   if (pathname === "/admin/tags") {
-    return {
-      eyebrow: "taxonomy",
-      title: "标签管理",
-      description: "维护更细粒度的主题标签，帮助文章、项目和资源形成更清晰的连接。",
-      action: { href: "/write", label: "去写文章" }
-    };
-  }
-
-  if (pathname === "/admin/friend-links" || pathname.startsWith("/admin/friend-links/")) {
-    return {
-      eyebrow: "friend links",
-      title: "友链管理",
-      description: "在审核、排序和展示之间保持整洁，确保友链页看起来像同一个花园的一部分。",
-      action: { href: "/admin/friend-links/new", label: "新增友链" }
-    };
+    return { index: "07", eyebrow: "TAXONOMY", title: "标签管理", description: "维护更细粒度的主题索引，让内容之间形成清晰连接。", action: { href: "/write", label: "去写文章" } };
   }
 
   if (pathname === "/admin/media") {
-    return {
-      eyebrow: "media desk",
-      title: "媒体库",
-      description: "文件上传、复制 URL 与表单复用都集中在这里处理，避免每个页面各自维护一套上传逻辑。",
-      action: undefined
-    };
+    return { index: "08", eyebrow: "MEDIA DESK", title: "媒体库", description: "集中完成文件上传、地址复制与表单复用，减少重复管理。", action: undefined };
   }
 
   if (pathname === "/admin/home-music") {
-    return {
-      eyebrow: "home player",
-      title: "首页音乐",
-      description: "集中管理首页播放器使用的歌曲、封面图片与播放资源，保持前台展示内容清晰可控。",
-      action: undefined
-    };
+    return { index: "09", eyebrow: "HOME PLAYER", title: "首页音乐", description: "管理首页播放器的歌曲、封面与音频资源。", action: undefined };
   }
 
   if (pathname === "/admin/site") {
-    return {
-      eyebrow: "site setup",
-      title: "站点配置",
-      description: "维护站点名称、副标题、公告、头像、Logo 与关于页文案，让公开页信息保持统一。",
-      action: undefined
-    };
+    return { index: "10", eyebrow: "SITE SETUP", title: "站点配置", description: "维护站点名称、副标题、公告、头像、Logo 与关于页文案。", action: undefined };
   }
 
   if (pathname === "/admin/account-security") {
-    return {
-      eyebrow: "account security",
-      title: "账号安全",
-      description: "集中管理当前管理员账号的密码更新与登录安全，改密成功后会立即让当前会话重新登录。",
-      action: undefined
-    };
+    return { index: "11", eyebrow: "ACCOUNT SECURITY", title: "账号安全", description: "更新管理员密码并重新建立安全登录会话。", action: undefined };
   }
 
-  return {
-    eyebrow: "content desk",
-    title: "文章管理",
-    description: "像整理工作台一样管理内容，把草稿、已发布和后续更新都放进同一套后台节奏里。",
-    action: { href: "/write", label: "写新文章" }
-  };
+  return { index: "01", eyebrow: "CONTENT DESK", title: "文章目录", description: "像整理馆藏目录一样管理草稿、发布内容和后续更新。", action: { href: "/write", label: "新建文章" } };
 }
 
 function AdminShellSkeleton() {
   return (
-    <div className="space-y-6">
-      <Card className="animate-pulse p-6 md:p-7">
-        <div className="h-4 w-28 rounded-full bg-accent/90" />
-        <div className="mt-4 h-10 w-60 rounded-full bg-accent/90" />
-        <div className="mt-4 h-4 w-full max-w-2xl rounded-full bg-accent/70" />
-      </Card>
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <Card className="animate-pulse p-5">
-          <div className="h-24 rounded-[1.5rem] bg-accent/85" />
-          <div className="mt-4 space-y-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="h-14 rounded-[1.2rem] bg-accent/75" />
-            ))}
-          </div>
-        </Card>
-        <Card className="animate-pulse p-6">
-          <div className="h-44 rounded-[1.5rem] bg-accent/80" />
-        </Card>
+    <div className={styles.skeleton}>
+      <LoadingSkeleton className="h-20 rounded-none" />
+      <div className="grid min-h-[720px] grid-cols-1 gap-px lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <LoadingSkeleton className="h-full rounded-none" />
+        <div className="space-y-5 p-6 lg:p-10">
+          <LoadingSkeleton className="h-36 rounded-none" />
+          <LoadingSkeleton className="h-60 rounded-none" />
+        </div>
       </div>
     </div>
   );
 }
 
-export function AdminDashboardShell({
-  children
-}: {
-  children: React.ReactNode;
-}) {
+export function AdminDashboardShell({ children, siteInfo }: { children: React.ReactNode; siteInfo: SiteInfo }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { replace } = useRouter();
   const { token, user, hydrated, restore, clearAuth } = useAuthStore();
   const [isPending, startTransition] = useTransition();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [brandLogoFailed, setBrandLogoFailed] = useState(false);
+  const brandLogoSrc = siteInfo.logo || "";
 
   useEffect(() => {
     restore();
-
     const handleAuthChanged = () => restore();
     window.addEventListener(ADMIN_AUTH_CHANGED_EVENT, handleAuthChanged);
-
-    return () => {
-      window.removeEventListener(ADMIN_AUTH_CHANGED_EVENT, handleAuthChanged);
-    };
+    return () => window.removeEventListener(ADMIN_AUTH_CHANGED_EVENT, handleAuthChanged);
   }, [restore]);
 
   useEffect(() => {
-    if (!hydrated || token) {
-      return;
-    }
+    if (hydrated && !token) replace("/admin/login");
+  }, [hydrated, replace, token]);
 
-    router.replace("/admin/login");
-  }, [hydrated, router, token]);
+  useEffect(() => setMenuOpen(false), [pathname]);
+  useEffect(() => setBrandLogoFailed(false), [brandLogoSrc]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [menuOpen]);
 
   const pageMeta = useMemo(() => getAdminPageMeta(pathname), [pathname]);
 
   const handleLogout = () => {
+    if (!confirmUnsavedChanges()) return;
     if (!token) {
       clearAuth();
-      router.replace("/admin/login?reason=logged-out");
+      replace("/admin/login?reason=logged-out");
       return;
     }
 
     startTransition(async () => {
-      try {
-        await logoutAdmin(token);
-      } finally {
+      try { await logoutAdmin(token); }
+      finally {
         clearAuth();
-        router.replace("/admin/login?reason=logged-out");
+        replace("/admin/login?reason=logged-out");
       }
     });
   };
 
-  if (!hydrated || !token) {
-    return <AdminShellSkeleton />;
-  }
+  if (!hydrated || !token) return <AdminShellSkeleton />;
 
   return (
-    <div className="space-y-6">
-      <Card className="overflow-hidden border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(246,244,236,0.86))] p-6 md:p-7 dark:border-white/8 dark:bg-[linear-gradient(135deg,rgba(13,21,37,0.96),rgba(16,25,40,0.93))] dark:shadow-[0_32px_68px_-38px_rgba(2,6,23,0.9)]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/65 bg-background/70 px-3 py-1.5 text-xs uppercase tracking-[0.22em] text-muted-foreground dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
-              <Sparkles className="h-3.5 w-3.5 text-[#4dcfc4]" />
-              {pageMeta.eyebrow}
-            </div>
-            <div className="space-y-2">
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground md:text-[2.8rem]">
-                {pageMeta.title}
-              </h1>
-              <p className="max-w-3xl text-sm leading-7 text-muted-foreground md:text-[15px]">
-                {pageMeta.description}
-              </p>
-            </div>
-          </div>
+    <div className={styles.root}>
+      <header className={styles.topbar}>
+        <Link href="/" className={styles.brand} aria-label="返回 Study Garden 首页">
+          <span className={styles.brandMark}>
+            {brandLogoSrc && !brandLogoFailed ? (
+              <Image src={brandLogoSrc} alt="" fill sizes="48px" className="object-cover" onError={() => setBrandLogoFailed(true)} />
+            ) : <Sprout aria-hidden="true" />}
+          </span>
+          <span className={styles.brandCopy}>
+            <strong>{siteInfo.siteName || "我的学习日记"}</strong>
+            <small>STUDY GARDEN / ADMIN</small>
+          </span>
+        </Link>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Link href="/" className="inline-flex">
-              <Button variant="secondary">
-                <Home className="h-4 w-4" />
-                返回前台
-              </Button>
+        <nav className={styles.topNav} aria-label="后台快捷导航">
+          {topNavItems.map((item) => (
+            <Link key={item.href} href={item.href} className={cn(styles.topNavItem, isNavItemActive(pathname, item.href) && styles.topNavItemActive)}>
+              <span>{item.code}</span>{item.label}
             </Link>
-            {pageMeta.action ? (
-              <Link href={pageMeta.action.href} className="inline-flex">
-                <Button>
-                  <FilePenLine className="h-4 w-4" />
-                  {pageMeta.action.label}
-                </Button>
-              </Link>
-            ) : null}
-          </div>
+          ))}
+        </nav>
+
+        <div className={styles.topActions}>
+          <a href="/" target="_blank" rel="noreferrer" className={styles.iconAction} aria-label="在新窗口查看前台"><ExternalLink aria-hidden="true" /></a>
+          <button type="button" className={cn(styles.iconAction, styles.menuButton)} onClick={() => setMenuOpen(true)} aria-label="打开管理导航" aria-expanded={menuOpen}><Menu aria-hidden="true" /></button>
         </div>
-      </Card>
+      </header>
 
-      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside className="xl:sticky xl:top-6 xl:self-start">
-          <Card className="space-y-5 p-4 md:p-5 dark:border-white/8 dark:bg-[linear-gradient(180deg,rgba(10,18,33,0.97),rgba(12,21,36,0.94))] dark:shadow-[0_30px_64px_-38px_rgba(2,6,23,0.9)]">
-            <div className="rounded-[1.7rem] border border-border/65 bg-background/78 p-4 dark:border-white/8 dark:bg-[linear-gradient(180deg,rgba(16,25,41,0.86),rgba(13,20,35,0.76))]">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] bg-[#f3efbb] text-sm font-semibold text-[#4f676d] shadow-[0_16px_28px_-24px_rgba(74,99,101,0.58)] dark:bg-[linear-gradient(135deg,rgba(236,225,177,0.96),rgba(111,215,204,0.7))] dark:text-[#0f1f2d] dark:shadow-[0_18px_32px_-26px_rgba(2,6,23,0.85)]">
-                  {initialLetters(user?.nickname || user?.username || "admin")}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {user?.nickname || user?.username || "管理员"}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-3.5 w-3.5 text-[#4dcfc4]" />
-                    <span>{user?.role || "ADMIN"}</span>
-                  </div>
-                </div>
-              </div>
+      <div className={styles.workspace}>
+        {menuOpen ? <button type="button" className={styles.backdrop} onClick={() => setMenuOpen(false)} aria-label="关闭管理导航" /> : null}
+        <aside className={cn(styles.sidebar, menuOpen && styles.sidebarOpen)} aria-label="后台管理导航">
+          <div className={styles.sidebarHeader}>
+            <div><p>内容管理台</p><span>CATALOG 0001 — SG — 2026</span></div>
+            <button type="button" className={styles.sidebarClose} onClick={() => setMenuOpen(false)} aria-label="关闭管理导航"><X aria-hidden="true" /></button>
+          </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Badge variant="secondary">后台已登录</Badge>
-                <Badge variant="outline">JWT 鉴权</Badge>
-              </div>
-            </div>
+          <div className={styles.operator}>
+            <span>{initialLetters(user?.nickname || user?.username || "admin")}</span>
+            <div><strong>{user?.nickname || user?.username || "管理员"}</strong><small><ShieldCheck aria-hidden="true" /> {user?.role || "ADMIN"} / 已登录</small></div>
+          </div>
 
-            <div className="space-y-4">
-              {adminNavGroups.map((group) => (
-                <div key={group.title} className="space-y-2">
-                  <p className="px-2 text-xs font-medium uppercase tracking-[0.24em] text-muted-foreground">
-                    {group.title}
-                  </p>
-                  <nav className="space-y-2">
-                    {group.items.map((item) => {
-                      const active = isNavItemActive(pathname, item.href);
+          <div className={styles.navGroups}>
+            {adminNavGroups.map((group) => (
+              <section key={group.title} className={styles.navGroup}>
+                <h2>{group.title}</h2>
+                <nav>
+                  {group.items.map((item) => {
+                    const active = isNavItemActive(pathname, item.href);
+                    return (
+                      <Link key={item.href} href={item.href} className={cn(styles.sideNavItem, active && styles.sideNavItemActive)}>
+                        <span className={styles.navCode}>{item.code}</span><item.icon aria-hidden="true" />
+                        <span className={styles.navCopy}><strong>{item.label}</strong><small>{item.description}</small></span>
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </section>
+            ))}
+          </div>
 
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            "flex items-start gap-3 rounded-[1.4rem] border border-transparent px-4 py-3 transition-all duration-300",
-                            active
-                              ? "bg-white/80 text-foreground shadow-[0_18px_32px_-28px_rgba(67,116,117,0.48)] dark:border-[#4dcfc4]/16 dark:bg-[linear-gradient(135deg,rgba(28,43,66,0.94),rgba(16,25,40,0.94))] dark:text-slate-100 dark:shadow-[0_26px_44px_-34px_rgba(2,6,23,0.86)]"
-                              : "text-muted-foreground hover:bg-background/70 hover:text-foreground dark:text-slate-400 dark:hover:bg-white/[0.04] dark:hover:text-slate-100",
-                          )}
-                        >
-                          <item.icon className="mt-0.5 h-4 w-4 shrink-0" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium">{item.label}</p>
-                            <p className="mt-1 text-xs leading-5 opacity-80">
-                              {item.description}
-                            </p>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-2 pt-1">
-              <a href="/articles" target="_blank" rel="noreferrer" className="inline-flex">
-                <Button variant="ghost" className="w-full justify-between rounded-[1rem] px-4">
-                  查看公开文章页
-                  <ExternalLink className="h-4 w-4" />
-                </Button>
-              </a>
-              <Button
-                variant="ghost"
-                className={cn(
-                  "w-full justify-between rounded-[1rem] px-4",
-                  adminDangerGhostButtonClassName,
-                )}
-                onClick={handleLogout}
-                disabled={isPending}
-              >
-                退出登录
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </Card>
+          <div className={styles.sidebarFooter}>
+            <Image src="/images/home/library-stamp.png" width={196} height={112} alt="Study Garden Library" className={styles.stamp} />
+            <Button variant="ghost" className={cn(styles.logout, adminDangerGhostButtonClassName)} onClick={handleLogout} disabled={isPending}><LogOut aria-hidden="true" />{isPending ? "退出中" : "退出登录"}</Button>
+            <p>STUDY GARDEN / ADMIN DESK / 2026</p>
+          </div>
         </aside>
 
-        <div className="min-w-0 space-y-6">{children}</div>
+        <main className={styles.main}>
+          <section className={styles.pageHeader}>
+            <div className={styles.pageRegister}><p>{pageMeta.eyebrow}</p><span>{pageMeta.index} / 11</span></div>
+            <div className={styles.pageTitleRow}>
+              <div><h1>{pageMeta.title}</h1><p>{pageMeta.description}</p></div>
+              <div className={styles.pageActions}>
+                <Link href="/" className={styles.secondaryAction}><Home aria-hidden="true" />返回前台</Link>
+                {pageMeta.action ? <Link href={pageMeta.action.href} className={styles.primaryAction}><FilePenLine aria-hidden="true" />{pageMeta.action.label}</Link> : null}
+              </div>
+            </div>
+            <div className={styles.headerRule}><span>SG — ADMIN — {pageMeta.index.padStart(2, "0")}</span></div>
+          </section>
+
+          <div className={styles.content}>{children}</div>
+        </main>
       </div>
     </div>
   );

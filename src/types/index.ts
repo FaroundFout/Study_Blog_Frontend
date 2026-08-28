@@ -7,7 +7,6 @@ export interface ApiResponse<T> {
 export type ArticleStatus = "draft" | "published" | "private";
 export type DiaryVisibility = "public" | "private";
 export type ProjectStatus = "planning" | "ongoing" | "completed" | "active" | "archived" | "paused";
-export type FriendLinkStatus = "pending" | "approved" | "rejected";
 
 export interface PageResponse<T> {
   total: number;
@@ -29,7 +28,39 @@ export interface SiteInfo {
   xiaohongshuUrl?: string;
   email?: string;
   aboutMeMd?: string;
+  aboutPageJson?: string;
   announcement?: string;
+}
+
+export interface AboutFocusItem {
+  title: string;
+  note: string;
+}
+
+export interface AboutMilestone {
+  date: string;
+  text: string;
+}
+
+export interface AboutPageContent {
+  profileSectionTitle: string;
+  profileTitle: string;
+  profileBio: string;
+  location: string;
+  timezone: string;
+  status: string;
+  noteTitle: string;
+  focusTitle: string;
+  timelineTitle: string;
+  contactTitle: string;
+  quote: string;
+  contactNote: string;
+  contactEmptyText: string;
+  githubNote: string;
+  bilibiliNote: string;
+  xiaohongshuNote: string;
+  focusItems: AboutFocusItem[];
+  milestones: AboutMilestone[];
 }
 
 export interface Category {
@@ -138,24 +169,13 @@ export interface ResourceCollection {
   items?: ResourceItem[];
 }
 
-export interface FriendLink {
-  id: number;
-  siteName: string;
-  siteUrl: string;
-  avatar?: string;
-  description: string;
-  status?: FriendLinkStatus | string;
-  sort?: number;
-  createdAt?: string;
-}
-
 export interface ArchiveRecord {
   archiveMonth: string;
   count: number;
 }
 
 export interface ArchiveItem {
-  type: "article" | "diary";
+  type: "article" | "diary" | "project";
   id: number;
   title: string;
   href: string;
@@ -169,7 +189,6 @@ export interface HomeData {
   latestDiaries: Diary[];
   featuredProjects: Project[];
   resourceCollections: ResourceCollection[];
-  friendLinks: FriendLink[];
 }
 
 export interface HomeMusic {
@@ -378,22 +397,6 @@ export interface AdminResourceItemSavePayload {
   sort?: number;
 }
 
-export interface AdminFriendLinkQuery {
-  pageNum?: number;
-  pageSize?: number;
-  keyword?: string;
-  status?: FriendLinkStatus;
-}
-
-export interface AdminFriendLinkSavePayload {
-  siteName: string;
-  siteUrl: string;
-  avatar?: string;
-  description?: string;
-  status: FriendLinkStatus;
-  sort?: number;
-}
-
 export interface AdminSiteConfigUpdatePayload {
   siteName: string;
   siteSubtitle?: string;
@@ -406,6 +409,7 @@ export interface AdminSiteConfigUpdatePayload {
   xiaohongshuUrl?: string;
   email?: string;
   aboutMeMd?: string;
+  aboutPageJson?: string;
   announcement?: string;
 }
 
@@ -420,6 +424,19 @@ export interface AdminHomeMusicUploadPayload {
   status?: "draft" | "published" | "archived";
 }
 
+export interface UploadProgressSnapshot {
+  loaded: number;
+  total?: number;
+  percent: number | null;
+}
+
+export type UploadProgressHandler = (progress: UploadProgressSnapshot) => void;
+
+export interface AdminUploadRequestOptions {
+  onProgress?: UploadProgressHandler;
+  onAuthRetry?: () => void;
+}
+
 export interface AdminHomeMusicQuery {
   pageNum?: number;
   pageSize?: number;
@@ -427,7 +444,7 @@ export interface AdminHomeMusicQuery {
   status?: "draft" | "published" | "archived" | "";
 }
 
-export interface AdminUploadFileOptions {
+export interface AdminUploadFileOptions extends AdminUploadRequestOptions {
   directory?: string;
 }
 

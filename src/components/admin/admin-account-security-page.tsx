@@ -114,14 +114,14 @@ export function AdminAccountSecurityPage() {
     setSaving(true);
     setNotice({
       tone: "info",
-      text: "Updating password and closing the current login session..."
+      text: "正在更新密码并注销该账号的全部设备会话…"
     });
 
     try {
       await changeAdminPassword(token, form);
       setNotice({
         tone: "success",
-        text: "Password updated. Please sign in again with the new password."
+        text: "密码已更新，全部设备会话已注销。请使用新密码重新登录。"
       });
       clearAuth();
       setForm(initialForm);
@@ -146,7 +146,7 @@ export function AdminAccountSecurityPage() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <p className="text-sm leading-7 text-muted-foreground">
-              在这里更改当前管理员密码。更新成功后，当前的访问令牌（access token）和刷新令牌（refresh token 家族）将被失效，你需要使用新密码重新登录。
+              在这里更改当前管理员密码。更新成功后，该账号在全部设备上的登录会话都会失效，需要使用新密码重新登录。
             </p>
             <AdminMetricStrip items={stats} />
           </div>
@@ -157,7 +157,7 @@ export function AdminAccountSecurityPage() {
               "dark:border-amber-400/12 dark:bg-[#241c12]/88 dark:text-amber-100/82",
             )}
           >
-            密码更新会立即影响当前登录会话。
+            密码更新后，全部设备都需要重新登录。
           </div>
         </div>
 

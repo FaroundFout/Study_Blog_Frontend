@@ -17,3 +17,8 @@ export async function revalidateArticlePublicContent(slugs: string[] = []) {
     revalidatePath(`/articles/${slug}`);
   });
 }
+
+export async function revalidateSiteConfigPublicContent() {
+  revalidatePath("/", "layout");
+  revalidatePath("/about");
+}

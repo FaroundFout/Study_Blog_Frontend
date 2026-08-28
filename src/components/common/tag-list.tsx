@@ -9,13 +9,15 @@ interface TagListProps {
   className?: string;
   hrefBuilder?: (tag: Tag | string) => string;
   activeSlug?: string;
+  showHash?: boolean;
 }
 
 export function TagList({
   tags,
   className,
   hrefBuilder,
-  activeSlug
+  activeSlug,
+  showHash = true
 }: TagListProps) {
   if (!tags.length) {
     return null;
@@ -30,20 +32,23 @@ export function TagList({
 
         if (href) {
           return (
-            <Link key={item} href={href}>
+            <Link key={item} href={href} aria-current={activeSlug === slug ? "page" : undefined}>
               <Badge
                 variant={activeSlug === slug ? "default" : "secondary"}
-                className="page-chip cursor-pointer hover:border-primary/30 hover:text-foreground"
+                className={cn(
+                  "catalog-tag-chip page-chip cursor-pointer",
+                  activeSlug === slug && "catalog-tag-chip-active"
+                )}
               >
-                #{item}
+                {showHash ? "#" : ""}{item}
               </Badge>
             </Link>
           );
         }
 
         return (
-          <Badge key={item} variant="secondary" className="page-chip">
-            #{item}
+          <Badge key={item} variant="secondary" className="catalog-tag-chip page-chip">
+            {showHash ? "#" : ""}{item}
           </Badge>
         );
       })}

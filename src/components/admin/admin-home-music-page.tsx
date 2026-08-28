@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, ExternalLink, Loader2, Music4, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Copy, ExternalLink, Music4, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -18,6 +18,10 @@ import {
 } from "@/components/admin/admin-page-kit";
 import { AdminStateBadge } from "@/components/admin/admin-state-badge";
 import { EmptyState } from "@/components/common/empty-state";
+import {
+  UploadProgressBar,
+  type UploadProgressState
+} from "@/components/common/upload-progress-bar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -99,6 +103,7 @@ export function AdminHomeMusicPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [notice, setNotice] = useState<{
@@ -291,19 +296,54 @@ export function AdminHomeMusicPage() {
       return;
     }
 
+    const audioFile = form.audioFile;
+    const coverFile = form.coverFile;
+    const uploadLabel = coverFile ? `${audioFile.name} + ${coverFile.name}` : audioFile.name;
+    const selectedBytes = audioFile.size + (coverFile?.size ?? 0);
+
     setUploading(true);
     setNotice({ tone: "info", text: "正在上传歌曲并同步元数据..." });
+    setUploadProgress({
+      fileName: uploadLabel,
+      progress: { loaded: 0, total: selectedBytes, percent: 0 },
+      status: "uploading"
+    });
 
     try {
-      const payload = await uploadAdminHomeMusic(token, {
-        title: form.title.trim(),
-        artist: form.artist.trim(),
-        status: form.status,
-        audioFile: form.audioFile,
-        coverFile: form.coverFile ?? undefined,
-        durationSeconds: form.durationSeconds
-      });
+      const payload = await uploadAdminHomeMusic(
+        token,
+        {
+          title: form.title.trim(),
+          artist: form.artist.trim(),
+          status: form.status,
+          audioFile,
+          coverFile: coverFile ?? undefined,
+          durationSeconds: form.durationSeconds
+        },
+        {
+          onProgress: (progress) => {
+            setUploadProgress((current) => ({
+              fileName: uploadLabel,
+              progress,
+              status: current?.status === "retrying" ? "retrying" : "uploading"
+            }));
+          },
+          onAuthRetry: () => {
+            setNotice({ tone: "info", text: "会话已刷新，正在重新上传歌曲。" });
+            setUploadProgress((current) => ({
+              fileName: uploadLabel,
+              progress: current?.progress ?? { loaded: 0, total: selectedBytes, percent: 0 },
+              status: "retrying"
+            }));
+          }
+        },
+      );
 
+      setUploadProgress((current) => current ? {
+        ...current,
+        progress: { ...current.progress, percent: 100 },
+        status: "success"
+      } : null);
       setForm(emptyForm);
       setSelectedId(payload.id);
       setSelectedMusic(payload);
@@ -311,6 +351,7 @@ export function AdminHomeMusicPage() {
       setRefreshKey((current) => current + 1);
       setNotice({ tone: "success", text: `《${payload.title}》上传成功。` });
     } catch (error) {
+      setUploadProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "上传首页音乐失败。"
@@ -494,9 +535,11 @@ export function AdminHomeMusicPage() {
               </div>
             </div>
 
+            {uploadProgress ? <UploadProgressBar {...uploadProgress} /> : null}
+
             <div className="flex justify-end">
               <Button onClick={handleUpload} disabled={uploading}>
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <Upload className="h-4 w-4" />
                 {uploading ? "上传中..." : "上传首页音乐"}
               </Button>
             </div>

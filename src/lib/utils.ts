@@ -15,8 +15,48 @@ import type {
 
 dayjs.locale("zh-cn");
 
+const fallbackProjectCovers = [
+  "/images/project-garden.svg",
+  "/images/project-lab.svg",
+  "/images/project-note.svg",
+  "/images/resource-atlas.svg",
+  "/images/resource-tools.svg"
+];
+
+const fallbackArticleCovers = [
+  "/images/article-pattern.svg",
+  "/images/project-lab.svg",
+  "/images/resource-atlas.svg",
+  "/images/project-note.svg",
+  "/images/diary-pattern.svg",
+  "/images/resource-tools.svg"
+];
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+function stableIndex(seed: string, length: number) {
+  const hash = Array.from(seed).reduce((total, char) => total + char.charCodeAt(0), 0);
+  return hash % length;
+}
+
+export function getProjectCoverImage(project: Project) {
+  if (project.coverImage) {
+    return project.coverImage;
+  }
+
+  const seed = `${project.id}-${project.slug || project.name}`;
+  return fallbackProjectCovers[stableIndex(seed, fallbackProjectCovers.length)];
+}
+
+export function getArticleCoverImage(article: Article) {
+  if (article.coverImage) {
+    return article.coverImage;
+  }
+
+  const seed = `${article.id}-${article.slug || article.title}`;
+  return fallbackArticleCovers[stableIndex(seed, fallbackArticleCovers.length)];
 }
 
 export function formatDate(value?: string, pattern = "YYYY 年 MM 月 DD 日") {
@@ -139,7 +179,11 @@ export function sortProjects(items: Project[]) {
   });
 }
 
-export function createArchiveItems(articles: Article[], diaries: Diary[]): ArchiveItem[] {
+export function createArchiveItems(
+  articles: Article[],
+  diaries: Diary[],
+  projects: Project[] = [],
+): ArchiveItem[] {
   const articleItems: ArchiveItem[] = articles.map((article) => ({
     type: "article",
     id: article.id,
@@ -158,7 +202,18 @@ export function createArchiveItems(articles: Article[], diaries: Diary[]): Archi
     summary: diary.summary
   }));
 
-  return [...articleItems, ...diaryItems].sort(
+  const projectItems: ArchiveItem[] = projects.map((project) => ({
+    type: "project",
+    id: project.id,
+    title: project.name,
+    href: `/projects/${project.slug}`,
+    date: project.startDate ?? project.createdAt ?? "",
+    summary: project.summary
+  }));
+
+  return [...articleItems, ...diaryItems, ...projectItems]
+    .filter((item) => Boolean(item.date))
+    .sort(
     (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf(),
   );
 }

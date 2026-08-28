@@ -1,8 +1,10 @@
 "use client";
 
 import { Loader2, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { revalidateSiteConfigPublicContent } from "@/app/actions/revalidate-public-content";
+import { AdminAboutContentEditor } from "@/components/admin/admin-about-content-editor";
 import { AdminMarkdownPreview } from "@/components/admin/admin-markdown-preview";
 import { AdminMediaField } from "@/components/admin/admin-media-field";
 import {
@@ -12,15 +14,22 @@ import {
   adminAvatarTileClassName,
   adminFieldLabelClassName,
   adminInsetPanelClassName,
+  adminMarkdownTextareaClassName,
   adminPreviewSurfaceClassName
 } from "@/components/admin/admin-page-kit";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import {
+  parseAboutPageContent,
+  serializeAboutPageContent
+} from "@/lib/about-page-content";
 import { getAdminSiteConfig, updateAdminSiteConfig } from "@/lib/api";
+import { validateSiteConfigFields } from "@/lib/site-config-validation";
 import { useAuthStore } from "@/store/auth-store";
-import type { AdminSiteConfigUpdatePayload } from "@/types";
+import type { AboutPageContent, AdminSiteConfigUpdatePayload } from "@/types";
 
 interface SiteFormState {
   siteName: string;
@@ -35,6 +44,7 @@ interface SiteFormState {
   email: string;
   announcement: string;
   aboutMeMd: string;
+  aboutPage: AboutPageContent;
 }
 
 const emptyForm: SiteFormState = {
@@ -49,7 +59,8 @@ const emptyForm: SiteFormState = {
   xiaohongshuUrl: "",
   email: "",
   announcement: "",
-  aboutMeMd: ""
+  aboutMeMd: "",
+  aboutPage: parseAboutPageContent()
 };
 
 export function AdminSiteConfigPage() {
@@ -57,13 +68,17 @@ export function AdminSiteConfigPage() {
   const [form, setForm] = useState<SiteFormState>(emptyForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const loadedRef = useRef(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const { isDirty, markSaved } = useUnsavedChanges(form, hydrated && Boolean(token) && !loading);
   const [notice, setNotice] = useState<{
     tone: "info" | "success" | "error";
     text: string;
   } | null>(null);
 
   useEffect(() => {
-    if (!hydrated || !token) {
+    if (!hydrated || !token || loadedRef.current) {
       return;
     }
 
@@ -76,7 +91,7 @@ export function AdminSiteConfigPage() {
           return;
         }
 
-        setForm({
+        const loadedForm: SiteFormState = {
           siteName: payload.siteName || "",
           siteSubtitle: payload.siteSubtitle || "",
           homeBrandLabel: payload.homeBrandLabel || "",
@@ -88,8 +103,12 @@ export function AdminSiteConfigPage() {
           xiaohongshuUrl: payload.xiaohongshuUrl || "",
           email: payload.email || "",
           announcement: payload.announcement || "",
-          aboutMeMd: payload.aboutMeMd || ""
-        });
+          aboutMeMd: payload.aboutMeMd || "",
+          aboutPage: parseAboutPageContent(payload.aboutPageJson)
+        };
+        setForm(loadedForm);
+        markSaved(loadedForm);
+        loadedRef.current = true;
       })
       .catch((error) => {
         if (!cancelled) {
@@ -108,7 +127,7 @@ export function AdminSiteConfigPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, token]);
+  }, [hydrated, markSaved, token]);
 
   const stats = useMemo(() => {
     const configuredLinks = [
@@ -125,6 +144,11 @@ export function AdminSiteConfigPage() {
         label: "首页文案字数",
         value: (form.homeBrandLabel + form.homeIntroText).replace(/\s+/g, "").length,
         accent: "sky" as const
+      },
+      {
+        label: "关于页条目",
+        value: form.aboutPage.focusItems.length + form.aboutPage.milestones.length,
+        accent: "mint" as const
       }
     ];
   }, [
@@ -134,16 +158,22 @@ export function AdminSiteConfigPage() {
     form.homeBrandLabel,
     form.homeIntroText,
     form.siteName,
-    form.xiaohongshuUrl
+    form.xiaohongshuUrl,
+    form.aboutPage.focusItems.length,
+    form.aboutPage.milestones.length
   ]);
 
   const handleSave = async () => {
-    if (!token) {
+    if (!token || saving) {
       return;
     }
 
-    if (!form.siteName.trim()) {
-      setNotice({ tone: "error", text: "站点名称不能为空。" });
+    const errors = validateSiteConfigFields(form);
+    setFieldErrors(errors);
+    const firstError = Object.keys(errors)[0];
+    if (firstError) {
+      const field = formRef.current?.elements.namedItem(firstError);
+      if (field instanceof HTMLElement) field.focus();
       return;
     }
 
@@ -163,11 +193,14 @@ export function AdminSiteConfigPage() {
         xiaohongshuUrl: form.xiaohongshuUrl.trim() || undefined,
         email: form.email.trim() || undefined,
         announcement: form.announcement.trim() || undefined,
-        aboutMeMd: form.aboutMeMd.trim() || undefined
+        aboutMeMd: form.aboutMeMd.trim() || undefined,
+        aboutPageJson: serializeAboutPageContent(form.aboutPage)
       };
 
       await updateAdminSiteConfig(token, payload);
-      setNotice({ tone: "success", text: "站点配置已更新。" });
+      markSaved(form);
+      await revalidateSiteConfigPublicContent();
+      setNotice({ tone: "success", text: "站点配置已更新，前台缓存已刷新。" });
     } catch (error) {
       setNotice({
         tone: "error",
@@ -183,7 +216,28 @@ export function AdminSiteConfigPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <form
+      ref={formRef}
+      noValidate
+      autoComplete="off"
+      className="space-y-6"
+      onSubmit={(event) => {
+        // Portal forms (the media picker search) have their own submit behavior.
+        if (event.target !== event.currentTarget) return;
+        event.preventDefault();
+        void handleSave();
+      }}
+      onChangeCapture={(event) => {
+        const field = event.target;
+        if (field instanceof HTMLInputElement && fieldErrors[field.name]) {
+          setFieldErrors((current) => {
+            const next = { ...current };
+            delete next[field.name];
+            return next;
+          });
+        }
+      }}
+    >
       <Card className="space-y-5 p-5 md:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
@@ -192,12 +246,13 @@ export function AdminSiteConfigPage() {
             </p>
             <AdminMetricStrip items={stats} />
           </div>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             保存配置
           </Button>
         </div>
 
+        {isDirty ? <p className="text-sm text-muted-foreground">有未保存的修改</p> : null}
         {notice ? <AdminNotice tone={notice.tone}>{notice.text}</AdminNotice> : null}
       </Card>
 
@@ -206,31 +261,47 @@ export function AdminSiteConfigPage() {
           <Card className="space-y-5 p-5 md:p-6">
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Site Name</p>
+                <label htmlFor="site-name" className={adminFieldLabelClassName}>Site Name</label>
                 <Input
+                  id="site-name"
+                  name="siteName"
+                  required
+                  aria-invalid={Boolean(fieldErrors.siteName)}
+                  aria-describedby={fieldErrors.siteName ? "siteName-error" : undefined}
                   value={form.siteName}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, siteName: event.target.value }))
                   }
                   placeholder="Study Garden"
                 />
+                <SiteFieldError name="siteName" message={fieldErrors.siteName} />
               </div>
 
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Email</p>
+                <label htmlFor="site-email" className={adminFieldLabelClassName}>Email</label>
                 <Input
+                  id="site-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? "email-error" : undefined}
                   value={form.email}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, email: event.target.value }))
                   }
                   placeholder="hello@example.com"
                 />
+                <SiteFieldError name="email" message={fieldErrors.email} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <p className={adminFieldLabelClassName}>Subtitle</p>
+              <label htmlFor="site-subtitle" className={adminFieldLabelClassName}>Subtitle</label>
               <Input
+                id="site-subtitle"
+                name="siteSubtitle"
                 value={form.siteSubtitle}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, siteSubtitle: event.target.value }))
@@ -241,8 +312,10 @@ export function AdminSiteConfigPage() {
 
             <div className="grid gap-5 md:grid-cols-2">
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Home Brand Label</p>
+                <label htmlFor="site-home-brand" className={adminFieldLabelClassName}>Home Brand Label</label>
                 <Input
+                  id="site-home-brand"
+                  name="homeBrandLabel"
                   value={form.homeBrandLabel}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, homeBrandLabel: event.target.value }))
@@ -255,8 +328,10 @@ export function AdminSiteConfigPage() {
               </div>
 
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Announcement</p>
+                <label htmlFor="site-announcement" className={adminFieldLabelClassName}>Announcement</label>
                 <Textarea
+                  id="site-announcement"
+                  name="announcement"
                   value={form.announcement}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, announcement: event.target.value }))
@@ -267,8 +342,10 @@ export function AdminSiteConfigPage() {
             </div>
 
             <div className="space-y-2">
-              <p className={adminFieldLabelClassName}>Home Intro Text</p>
+              <label htmlFor="site-home-intro" className={adminFieldLabelClassName}>Home Intro Text</label>
               <Textarea
+                id="site-home-intro"
+                name="homeIntroText"
                 value={form.homeIntroText}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, homeIntroText: event.target.value }))
@@ -283,36 +360,57 @@ export function AdminSiteConfigPage() {
 
             <div className="grid gap-5 md:grid-cols-3">
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>GitHub</p>
+                <label htmlFor="site-github" className={adminFieldLabelClassName}>GitHub</label>
                 <Input
+                  id="site-github"
+                  name="githubUrl"
+                  type="url"
+                  spellCheck={false}
+                  aria-invalid={Boolean(fieldErrors.githubUrl)}
+                  aria-describedby={fieldErrors.githubUrl ? "githubUrl-error" : undefined}
                   value={form.githubUrl}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, githubUrl: event.target.value }))
                   }
                   placeholder="https://github.com/..."
                 />
+                <SiteFieldError name="githubUrl" message={fieldErrors.githubUrl} />
               </div>
 
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Bilibili</p>
+                <label htmlFor="site-bilibili" className={adminFieldLabelClassName}>Bilibili</label>
                 <Input
+                  id="site-bilibili"
+                  name="bilibiliUrl"
+                  type="url"
+                  spellCheck={false}
+                  aria-invalid={Boolean(fieldErrors.bilibiliUrl)}
+                  aria-describedby={fieldErrors.bilibiliUrl ? "bilibiliUrl-error" : undefined}
                   value={form.bilibiliUrl}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, bilibiliUrl: event.target.value }))
                   }
                   placeholder="https://space.bilibili.com/..."
                 />
+                <SiteFieldError name="bilibiliUrl" message={fieldErrors.bilibiliUrl} />
               </div>
 
               <div className="space-y-2">
-                <p className={adminFieldLabelClassName}>Xiaohongshu</p>
+                <label htmlFor="site-xiaohongshu" className={adminFieldLabelClassName}>Xiaohongshu</label>
                 <Input
+                  id="site-xiaohongshu"
+                  name="xiaohongshuUrl"
+                  type="url"
+                  spellCheck={false}
+                  aria-invalid={Boolean(fieldErrors.xiaohongshuUrl)}
+                  aria-describedby={fieldErrors.xiaohongshuUrl ? "xiaohongshuUrl-error" : undefined}
                   value={form.xiaohongshuUrl}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, xiaohongshuUrl: event.target.value }))
                   }
                   placeholder="https://www.xiaohongshu.com/..."
                 />
+                <SiteFieldError name="xiaohongshuUrl" message={fieldErrors.xiaohongshuUrl} />
               </div>
             </div>
           </Card>
@@ -320,6 +418,7 @@ export function AdminSiteConfigPage() {
           <Card className="space-y-5 p-5 md:p-6">
             <div className="grid gap-5 lg:grid-cols-2">
               <AdminMediaField
+                name="logo"
                 label="Logo"
                 value={form.logo}
                 onChange={(value) => setForm((current) => ({ ...current, logo: value }))}
@@ -327,6 +426,7 @@ export function AdminSiteConfigPage() {
                 helperText="用于导航栏和站点识别区域。"
               />
               <AdminMediaField
+                name="avatar"
                 label="Avatar"
                 value={form.avatar}
                 onChange={(value) => setForm((current) => ({ ...current, avatar: value }))}
@@ -338,20 +438,27 @@ export function AdminSiteConfigPage() {
 
           <Card className="space-y-4 p-5 md:p-6">
             <div>
-              <p className="text-sm font-semibold text-foreground">关于页文案</p>
+              <label htmlFor="site-about-markdown" className="text-sm font-semibold text-foreground">关于页文案</label>
               <p className="mt-1 text-sm text-muted-foreground">
                 这里支持 Markdown，前台关于页会直接渲染这段内容。
               </p>
             </div>
             <Textarea
+              id="site-about-markdown"
+              name="aboutMeMd"
               value={form.aboutMeMd}
               onChange={(event) =>
                 setForm((current) => ({ ...current, aboutMeMd: event.target.value }))
               }
               placeholder="## 我是谁"
-              className="min-h-[420px] rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7 dark:border-white/10 dark:bg-[#0d1525]/95 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className={`min-h-[420px] ${adminMarkdownTextareaClassName}`}
             />
           </Card>
+
+          <AdminAboutContentEditor
+            value={form.aboutPage}
+            onChange={(aboutPage) => setForm((current) => ({ ...current, aboutPage }))}
+          />
         </div>
 
         <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
@@ -419,6 +526,21 @@ export function AdminSiteConfigPage() {
               </p>
             </div>
             <div className={`rounded-[1.5rem] p-5 ${adminInsetPanelClassName}`}>
+              <p className="whitespace-pre-line text-lg font-semibold leading-7 text-foreground">
+                {form.aboutPage.profileTitle}
+              </p>
+              <p className="mt-3 whitespace-pre-line text-sm leading-7 text-muted-foreground dark:text-slate-300">
+                {form.aboutPage.profileBio}
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                <span>{form.aboutPage.focusItems.length} 个关注方向</span>
+                <span>{form.aboutPage.milestones.length} 条成长轨迹</span>
+              </div>
+              <p className="mt-4 border-l-2 border-primary/40 pl-3 text-sm italic leading-7 text-muted-foreground">
+                {form.aboutPage.quote}
+              </p>
+            </div>
+            <div className={`rounded-[1.5rem] p-5 ${adminInsetPanelClassName}`}>
               <AdminMarkdownPreview
                 content={form.aboutMeMd.trim() || "这里会实时预览关于页 Markdown。"}
               />
@@ -426,6 +548,10 @@ export function AdminSiteConfigPage() {
           </Card>
         </div>
       </div>
-    </div>
+    </form>
   );
+}
+
+function SiteFieldError({ name, message }: { name: string; message?: string }) {
+  return message ? <p id={`${name}-error`} role="alert" className="text-sm text-rose-600">{message}</p> : null;
 }

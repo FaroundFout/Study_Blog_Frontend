@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, Loader2, Save } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useState } from "react";
 
 import { AdminMediaField } from "@/components/admin/admin-media-field";

@@ -1,21 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { Eye, FilePenLine, FolderTree, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { revalidateArticlePublicContent } from "@/app/actions/revalidate-public-content";
 import { AdminArticleStatusBadge } from "@/components/admin/admin-article-status-badge";
 import { EmptyState } from "@/components/common/empty-state";
+import { LoadingSkeleton } from "@/components/common/loading-skeleton";
 import { Pagination } from "@/components/common/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { deleteAdminArticle, getAdminArticles, getAdminCategories } from "@/lib/api";
-import { buildQueryString, formatDate } from "@/lib/utils";
+import { buildQueryString, cn, formatDate } from "@/lib/utils";
 import { useAuthStore } from "@/store/auth-store";
 import type { Article, Category, PageResponse } from "@/types";
+
+import styles from "./admin-articles-page.module.css";
 
 const selectClassName =
   "flex h-11 w-full rounded-[1.15rem] border border-border/70 bg-card/85 px-4 text-sm text-foreground shadow-sm outline-none transition-all focus:border-primary/50 focus:ring-2 focus:ring-primary/15";
@@ -23,22 +27,21 @@ const selectClassName =
 function ArticlesLoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <Card className="animate-pulse p-5 md:p-6">
+      <Card className="p-5 md:p-6">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_180px_160px_auto]">
-          <div className="h-11 rounded-full bg-accent/80" />
-          <div className="h-11 rounded-full bg-accent/80" />
-          <div className="h-11 rounded-full bg-accent/80" />
-          <div className="h-11 rounded-full bg-accent/80" />
+          {Array.from({ length: 4 }).map((_, index) => (
+            <LoadingSkeleton key={index} className="h-11 rounded-full" />
+          ))}
         </div>
       </Card>
 
       <div className="space-y-4">
         {Array.from({ length: 3 }).map((_, index) => (
-          <Card key={index} className="animate-pulse p-5 md:p-6">
-            <div className="h-5 w-32 rounded-full bg-accent/75" />
-            <div className="mt-4 h-8 w-3/4 rounded-full bg-accent/80" />
-            <div className="mt-4 h-4 w-full rounded-full bg-accent/60" />
-            <div className="mt-2 h-4 w-5/6 rounded-full bg-accent/55" />
+          <Card key={index} className="p-5 md:p-6">
+            <LoadingSkeleton className="h-5 w-32 rounded-full" />
+            <LoadingSkeleton className="mt-4 h-8 w-3/4 rounded-full" />
+            <LoadingSkeleton className="mt-4 h-4 w-full rounded-full" />
+            <LoadingSkeleton className="mt-2 h-4 w-5/6 rounded-full" />
           </Card>
         ))}
       </div>
@@ -180,8 +183,8 @@ export function AdminArticlesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="space-y-5 p-5 md:p-6">
+    <div className={cn("space-y-6", styles.root)}>
+      <Card className={cn("space-y-5 p-5 md:p-6", styles.summary)}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
@@ -212,10 +215,17 @@ export function AdminArticlesPage() {
           </Link>
         </div>
 
+        <div className={styles.metrics} aria-label="文章统计">
+          <div><span>全部文章</span><strong>{articlePage?.total ?? 0}</strong><small>篇</small></div>
+          <div><span>本页已发布</span><strong>{visiblePublished}</strong><small>篇</small></div>
+          <div><span>本页草稿</span><strong>{visibleDraft}</strong><small>篇</small></div>
+          <div><span>本页私密</span><strong>{visiblePrivate}</strong><small>篇</small></div>
+        </div>
+
         <form
           key={`${title}-${categoryId ?? ""}-${normalizedStatus ?? ""}`}
           onSubmit={handleFilterSubmit}
-          className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_180px_160px_auto]"
+          className={cn("grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_180px_160px_auto]", styles.filters)}
         >
           <input
             name="title"
@@ -273,11 +283,14 @@ export function AdminArticlesPage() {
         </Card>
       ) : articlePage?.list.length ? (
         <>
-          <div className="space-y-4">
+          <div className={styles.ledger}>
+            <div className={styles.ledgerHeader} aria-hidden="true">
+              <span>编号 / 标题</span><span>归档信息</span><span>操作</span>
+            </div>
             {articlePage.list.map((article) => (
-              <Card key={article.id} className="p-5 md:p-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0 flex-1 space-y-4">
+              <Card key={article.id} className={cn("p-5 md:p-6", styles.ledgerRow)}>
+                <div className={cn("flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between", styles.rowGrid)}>
+                  <div className={cn("min-w-0 flex-1 space-y-4", styles.rowContent)}>
                     <div className="flex flex-wrap items-center gap-2">
                       <AdminArticleStatusBadge status={article.status} />
                       {article.isTop ? <Badge variant="secondary">置顶</Badge> : null}
@@ -290,7 +303,7 @@ export function AdminArticlesPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Link href={`/write/${article.id}`} className="group inline-flex max-w-full">
+                      <Link href={`/write/${article.id}`} className={cn("group inline-flex max-w-full", styles.rowTitle)}>
                         <h2 className="truncate text-xl font-semibold tracking-tight text-foreground transition-colors group-hover:text-primary md:text-[1.65rem]">
                           {article.title}
                         </h2>
@@ -315,7 +328,7 @@ export function AdminArticlesPage() {
                       )}
                     </div>
 
-                    <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+                    <div className={cn("flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground", styles.rowMeta)}>
                       <span>Slug：{article.slug}</span>
                       <span>发布时间：{formatDate(article.publishTime || article.createdAt, "YYYY/MM/DD HH:mm")}</span>
                       <span>阅读：{article.viewCount ?? 0}</span>
@@ -323,7 +336,7 @@ export function AdminArticlesPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 lg:w-[260px] lg:justify-end">
+                  <div className={cn("flex flex-wrap gap-2 lg:w-[260px] lg:justify-end", styles.rowActions)}>
                     {article.status === "published" ? (
                       <Link href={`/articles/${article.slug}`} target="_blank" className="inline-flex">
                         <Button variant="secondary">
@@ -359,6 +372,7 @@ export function AdminArticlesPage() {
             total={articlePage.total}
             pathname="/admin/articles"
             query={query}
+            ariaLabel="后台文章分页"
           />
         </>
       ) : (

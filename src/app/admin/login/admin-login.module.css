@@ -1,0 +1,105 @@
+.page {
+  --login-paper: #efe5d5;
+  --login-sheet: #fbf8f0;
+  --login-ink: #15382f;
+  --login-soft: #667068;
+  --login-blue: #183da8;
+  --login-red: #c93c2c;
+  --login-line: rgb(21 56 47 / 0.34);
+  position: relative;
+  left: 50%;
+  display: grid;
+  width: 100cqw;
+  min-height: 100dvh;
+  grid-template-columns: clamp(22rem, 32vw, 30rem) minmax(0, 1fr);
+  margin: -1.75rem 0 -2.5rem -50cqw;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(8deg, rgb(74 66 50 / 0.02) 0, rgb(74 66 50 / 0.02) 1px, transparent 1px, transparent 7px),
+    var(--login-paper);
+  color: var(--login-ink);
+}
+
+:global(.dark) .page {
+  --login-paper: #0b1614;
+  --login-sheet: #11221e;
+  --login-ink: #e9e1d3;
+  --login-soft: #aab4aa;
+  --login-blue: #8faaff;
+  --login-red: #ff8678;
+  --login-line: rgb(233 225 211 / 0.24);
+}
+
+.catalogPanel { display: flex; min-height: 100dvh; flex-direction: column; border-right: 1px solid var(--login-line); padding: clamp(1.5rem, 2.5vw, 2.5rem); }
+.catalogTop { display: flex; align-items: center; justify-content: space-between; }
+.backLink { display: inline-flex; align-items: center; gap: 0.5rem; font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.08em; transition: color 160ms ease; }
+.backLink:hover { color: var(--login-blue); }
+.backLink:focus-visible { outline: 2px solid var(--login-blue); outline-offset: 4px; }
+.backLink svg { width: 0.95rem; height: 0.95rem; }
+.entryCode { display: inline-flex; width: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; border: 1px solid var(--login-line); font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.08em; color: var(--login-blue); }
+.catalogBody { margin-top: clamp(4.5rem, 10vh, 7.5rem); }
+.kicker { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.17em; color: var(--login-blue); }
+.catalogCopy h1 { margin-top: 1rem; font-family: var(--font-catalog-display); font-size: clamp(3.8rem, 4.8vw, 4.75rem); font-weight: 600; line-height: 0.88; letter-spacing: -0.06em; }
+.rule { width: min(20rem, 100%); margin-top: 1.75rem; border-top: 2px solid var(--login-blue); }
+.catalogCopy > p:last-child { max-width: 24rem; margin-top: 1.25rem; font-size: 0.9rem; line-height: 1.8; color: var(--login-soft); }
+.catalogIndex { display: grid; margin-top: 2.4rem; border-block: 1px solid var(--login-line); }
+.catalogIndex span { display: flex; align-items: center; gap: 0.8rem; padding: 0.7rem 0; font-family: var(--font-catalog-display); font-size: 0.86rem; }
+.catalogIndex b { min-width: 1.5rem; font-family: var(--font-mono); font-size: 0.58rem; font-weight: 500; letter-spacing: 0.08em; color: var(--login-blue); }
+.catalogIndex span + span { border-top: 1px dotted var(--login-line); }
+.catalogFooter { margin-top: auto; padding-top: 2rem; }
+.stamp { width: 9.5rem; height: auto; transform: rotate(-2deg); object-fit: contain; }
+.serial { margin-top: 1.5rem; font-family: var(--font-mono); font-size: 0.54rem; letter-spacing: 0.14em; color: var(--login-soft); }
+
+.loginArea { position: relative; display: flex; align-items: center; justify-content: center; padding: clamp(2rem, 5vw, 5.5rem); }
+.loginArea::before { position: absolute; top: 2rem; right: 2.5rem; content: "ACCESS / 001"; font-family: var(--font-mono); font-size: 0.5rem; letter-spacing: 0.16em; color: var(--login-soft); writing-mode: vertical-rl; }
+.loginSheet { width: min(38rem, 100%); border: 1px solid var(--login-line); background: color-mix(in srgb, var(--login-sheet) 84%, transparent); box-shadow: 8px 10px 0 rgb(51 43 31 / 0.08); }
+.sheetHeader { display: flex; min-height: 4.25rem; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--login-line); padding: 0.8rem 1.35rem; }
+.sheetMeta { display: flex; align-items: center; gap: 1rem; font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.12em; }
+.sheetMeta span { color: var(--login-blue); }
+.lockMark { display: inline-flex; width: 2.75rem; height: 2.75rem; align-items: center; justify-content: center; border: 1px solid var(--login-line); }
+.lockMark svg { width: 1.05rem; height: 1.05rem; }
+.titleBlock { display: grid; grid-template-columns: minmax(0, 1fr) minmax(12rem, 15rem); align-items: end; gap: 1.75rem; padding: 2.15rem 2.4rem 1.25rem; }
+.titleHeading > p { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.17em; color: var(--login-red); }
+.titleHeading h2 { margin-top: 0.55rem; font-family: var(--font-catalog-display); font-size: clamp(3.25rem, 4.5vw, 4rem); font-weight: 600; line-height: 0.92; letter-spacing: -0.055em; white-space: nowrap; }
+.titleDescription { padding-bottom: 0.25rem; font-size: 0.84rem; line-height: 1.75; color: var(--login-soft); }
+.form { display: grid; gap: 1rem; padding: 1.15rem 2.4rem 2.25rem; }
+.form label { display: grid; gap: 0.55rem; }
+.form label > span { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.11em; color: var(--login-soft); }
+.form input { height: 3.35rem; border-radius: 0 !important; border-color: var(--login-line); background: color-mix(in srgb, var(--login-sheet) 72%, transparent); font-size: 0.92rem; }
+.form input:focus { border-color: var(--login-blue); box-shadow: 0 0 0 1px var(--login-blue); }
+.notice, .error { border: 1px solid var(--login-blue); padding: 0.8rem 0.9rem; font-size: 0.82rem; line-height: 1.55; color: var(--login-blue); }
+.error { border-color: var(--login-red); color: var(--login-red); }
+.submit { height: 3.35rem !important; border-radius: 0 !important; background: var(--login-ink) !important; color: var(--login-sheet) !important; font-size: 0.88rem !important; box-shadow: none !important; }
+.submit:hover { transform: none !important; background: var(--login-blue) !important; }
+.loginSheet footer { display: flex; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--login-line); padding: 0.85rem 1.35rem; font-family: var(--font-mono); font-size: 0.54rem; letter-spacing: 0.1em; color: var(--login-soft); }
+
+@media (max-width: 980px) {
+  .page { display: block; margin-top: -1.2rem; overflow: visible; }
+  .catalogPanel { min-height: 14.75rem; border-right: 0; border-bottom: 1px solid var(--login-line); padding: 1rem 1.25rem 1.35rem; }
+  .catalogBody { margin-top: 2.65rem; }
+  .catalogCopy h1 { font-size: clamp(2.8rem, 11vw, 3.5rem); line-height: 0.88; }
+  .rule { margin-top: 1.2rem; }
+  .catalogCopy > p:last-child, .catalogIndex, .stamp { display: none; }
+  .catalogFooter { margin-top: auto; padding-top: 1.5rem; }
+  .serial { margin-top: 0; }
+  .loginArea { padding: 1rem 1rem 2.75rem; }
+  .loginArea::before { display: none; }
+  .loginSheet { box-shadow: 4px 5px 0 rgb(51 43 31 / 0.08); }
+}
+
+@media (max-width: 600px) {
+  .entryCode { width: 2.4rem; height: 2.4rem; }
+  .titleBlock { display: block; padding: 1.65rem 1.25rem 0.9rem; }
+  .titleHeading h2 { font-size: clamp(2.55rem, 12vw, 3rem); }
+  .titleDescription { margin-top: 0.85rem; padding-bottom: 0; font-size: 0.82rem; }
+  .form { padding: 1rem 1.25rem 1.6rem; }
+}
+
+@media (max-width: 480px) {
+  .sheetMeta p { display: none; }
+  .loginSheet footer span:nth-child(2) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backLink { transition: none; }
+}

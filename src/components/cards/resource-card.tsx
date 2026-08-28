@@ -1,75 +1,53 @@
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { ArrowUpRight, ExternalLink } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { splitCommaText } from "@/lib/utils";
-import type { ResourceCollection, ResourceItem } from "@/types";
+import type { ResourceItem } from "@/types";
 
-export function ResourceCard({
-  collection,
-  item
-}: {
-  collection?: ResourceCollection;
-  item?: ResourceItem;
-}) {
-  if (collection) {
-    return (
-      <Link href={`/resources#${collection.slug}`} className="group block">
-        <Card className="page-card-shell p-0">
-          <div className="page-card-body">
-            <p className="page-card-kicker">Resource Group</p>
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-2.5">
-                <h3 className="page-card-title transition-colors group-hover:text-primary">
-                  {collection.name}
-                </h3>
-                <p className="page-card-summary line-clamp-3">{collection.description}</p>
-              </div>
-              <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </div>
-          </div>
-          <div className="page-card-divider page-card-meta mx-5 mb-5 flex items-center justify-between md:mx-6 md:mb-6">
-            <span>{collection.itemCount ?? collection.items?.length ?? 0} 个条目</span>
-            <Badge variant="secondary">资源分组</Badge>
-          </div>
-        </Card>
-      </Link>
-    );
-  }
+interface ResourceCardProps {
+  item: ResourceItem;
+  collectionIndex: number;
+  index: number;
+}
 
-  if (!item) {
-    return null;
+function getHostname(linkUrl: string) {
+  try {
+    return new URL(linkUrl).hostname.replace(/^www\./, "");
+  } catch {
+    return "external-resource";
   }
+}
+
+export function ResourceCard({ item, collectionIndex, index }: ResourceCardProps) {
+  const tags = splitCommaText(item.tagsText).slice(0, 2);
+  const callNumber = `R${String(collectionIndex).padStart(2, "0")}.${String(index).padStart(2, "0")}`;
+  const hostname = getHostname(item.linkUrl);
 
   return (
-    <a href={item.linkUrl} target="_blank" rel="noreferrer" className="group block">
-      <Card className="page-card-shell p-0">
-        <div className="page-card-body">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-2.5">
-              <p className="page-card-kicker">{item.sourceName || "External Link"}</p>
-              <h3 className="page-card-title transition-colors group-hover:text-primary">
-                {item.title}
-              </h3>
-              <p className="page-card-summary line-clamp-3">{item.summary}</p>
-            </div>
-            <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+    <article className="resource-entry-card">
+      <Link
+        href={`/resources/${item.id}`}
+        className="resource-entry-link group"
+        aria-label={`查看资源详情：${item.title}`}
+      >
+        <div className="resource-entry-body">
+          <div className="resource-entry-copy">
+            <h3>{item.title}</h3>
+            <span className="resource-entry-domain">{hostname} <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 stroke-[1.6]" /></span>
+            <p>{item.summary}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {splitCommaText(item.tagsText)
-              .slice(0, 3)
-              .map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
+
+          {tags.length ? (
+            <ul className="resource-entry-tags" aria-label="资源标签">
+              {tags.map((tag) => (
+                <li key={tag}>#{tag}</li>
               ))}
-          </div>
+            </ul>
+          ) : null}
         </div>
-        <p className="page-card-divider page-card-meta mx-5 mb-5 md:mx-6 md:mb-6">
-          来源：{item.sourceName || "外部链接"}
-        </p>
-      </Card>
-    </a>
+
+        <footer className="resource-entry-footer"><span>{callNumber}</span><span>{item.sourceName || "External reference"}</span></footer>
+      </Link>
+    </article>
   );
 }

@@ -42,9 +42,6 @@ export function HeroSection({ siteInfo, featuredArticle, counts }: HeroSectionPr
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/bloggers">
-              <Button>看看友链墙</Button>
-            </Link>
             <Link href="/articles">
               <Button variant="secondary">阅读文章</Button>
             </Link>

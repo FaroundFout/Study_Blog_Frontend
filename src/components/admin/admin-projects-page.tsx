@@ -290,7 +290,11 @@ export function AdminProjectsPage() {
 
                   <div className="flex flex-wrap gap-2">
                     {project.slug ? (
-                      <Link href={`/projects/${project.slug}`} target="_blank" className="inline-flex">
+                      <Link
+                        href={`/projects/${encodeURIComponent(project.slug)}`}
+                        target="_blank"
+                        className="inline-flex"
+                      >
                         <Button variant="secondary">
                           <ExternalLink className="h-4 w-4" />
                           预览前台

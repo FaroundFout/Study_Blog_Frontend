@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, Clock3, Loader2, Save } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminMarkdownPreview } from "@/components/admin/admin-markdown-preview";
@@ -10,6 +10,7 @@ import {
   AdminNotice,
   AdminPageSkeleton,
   adminFieldLabelClassName,
+  adminMarkdownTextareaClassName,
   adminSelectClassName
 } from "@/components/admin/admin-page-kit";
 import { AdminStateBadge } from "@/components/admin/admin-state-badge";
@@ -231,7 +232,7 @@ export function AdminDiaryEditor({
                   setForm((current) => ({ ...current, contentMd: event.target.value }))
                 }
                 placeholder="记录今天学了什么、踩了哪些坑、下一步打算做什么。"
-                className="min-h-[560px] rounded-[1.5rem] bg-[#fbfaf5] font-mono text-[13px] leading-7"
+                className={`min-h-[560px] ${adminMarkdownTextareaClassName}`}
               />
             </div>
           </Card>

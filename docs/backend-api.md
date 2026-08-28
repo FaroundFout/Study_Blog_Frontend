@@ -62,8 +62,10 @@ Authorization: Bearer {token}
 说明：
 
 - 先调用 `POST /api/admin/auth/login`
-- 登录成功后，从返回值里拿 `token`
+- 登录成功后，后端返回短期 access token，并写入 HttpOnly refresh cookie
 - 前端请求后台接口时自行拼接 `Bearer `
+- access token 过期后，调用 `POST /api/admin/auth/refresh`，后端会轮换 refresh token 并返回新的 access token
+- `login`、`refresh`、`logout`、`change-password` 需要带上 cookie，前端请求应使用 `credentials: "include"`
 
 ## 2. 关键枚举
 
@@ -84,13 +86,7 @@ Authorization: Bearer {token}
 - `ongoing`：进行中
 - `completed`：已完成
 
-### 2.4 友链状态 `friend_link.status`
-
-- `pending`：待审核
-- `approved`：已通过
-- `rejected`：已拒绝
-
-### 2.5 用户角色 `sys_user.role`
+### 2.4 用户角色 `sys_user.role`
 
 - `ADMIN`
 
@@ -115,11 +111,13 @@ Authorization: Bearer {token}
 - 项目详情：`GET /api/public/projects/slug/{slug}` 或 `GET /api/public/projects/{id}`
 - 资源页：`GET /api/public/resources`
 - 分组资源详情：`GET /api/public/resources/{collectionId}/items`
-- 友链页：`GET /api/public/friend-links`
 
 ### 3.2 后台管理
 
 - 登录页：`POST /api/admin/auth/login`
+- 刷新登录态：`POST /api/admin/auth/refresh`
+- 退出登录：`POST /api/admin/auth/logout`
+- 修改密码：`POST /api/admin/auth/change-password`
 - 当前管理员信息：`GET /api/admin/auth/me`
 - 文章管理：`/api/admin/articles`
 - 分类管理：`/api/admin/categories`
@@ -128,7 +126,6 @@ Authorization: Bearer {token}
 - 项目管理：`/api/admin/projects`
 - 资源分组管理：`/api/admin/resource-collections`
 - 资源项管理：`/api/admin/resource-items`
-- 友链管理：`/api/admin/friend-links`
 - 站点配置：`GET/PUT /api/admin/site-config`
 - 文件上传：`POST /api/admin/upload`
 - 文件列表：`GET /api/admin/upload/files`
@@ -137,7 +134,7 @@ Authorization: Bearer {token}
 
 ### 3.3 媒体库页面建议
 
-如果前端要做一个后台“媒体库 / 文件管理”页面，当前最小接口组合已经够用：
+后台“媒体库 / 文件管理”页面使用的最小接口组合：
 
 - 上传文件：`POST /api/admin/upload`
 - 文件分页列表：`GET /api/admin/upload/files`
@@ -160,7 +157,8 @@ Authorization: Bearer {token}
 {
   "token": "xxx",
   "tokenType": "Bearer",
-  "expiresIn": 86400,
+  "expiresIn": 900,
+  "refreshExpiresIn": 604800,
   "userInfo": {
     "id": 1,
     "username": "admin",
@@ -202,8 +200,7 @@ Authorization: Bearer {token}
   "latestArticles": [],
   "latestDiaries": [],
   "featuredProjects": [],
-  "resourceCollections": [],
-  "friendLinks": []
+  "resourceCollections": []
 }
 ```
 
@@ -225,23 +222,68 @@ Authorization: Bearer {token}
 
 - 返回：`Result<LoginVO>`
 
-### 5.2 获取当前管理员
+说明：
+
+- 返回体中的 `token` 是 access token。
+- refresh token 不出现在 JSON 中，后端通过 `Set-Cookie` 写入 HttpOnly cookie。
+- 默认 refresh cookie path 为 `/api/admin/auth`，名称由后端 `JWT_REFRESH_COOKIE_NAME` 配置决定。
+
+### 5.2 刷新 access token
+
+- 方法：`POST`
+- 路径：`/api/admin/auth/refresh`
+- 鉴权：否
+- Cookie：需要携带 refresh cookie
+- 返回：`Result<LoginVO>`
+
+说明：
+
+- 后端会轮换 refresh token，并重新写入 HttpOnly cookie。
+- 如果 refresh token 无效、过期或被复用，后端会清理 cookie，前端应跳转登录页。
+
+### 5.3 获取当前管理员
 
 - 方法：`GET`
 - 路径：`/api/admin/auth/me`
 - 鉴权：是
 - 返回：`Result<AdminUserVO>`
 
-### 5.3 退出登录
+### 5.4 退出登录
 
 - 方法：`POST`
 - 路径：`/api/admin/auth/logout`
 - 鉴权：是
+- Cookie：建议携带 refresh cookie
 - 返回：`Result<Void>`
 
 说明：
 
-- 后端会把当前 token 加入 Redis 黑名单
+- 后端会撤销当前 refresh token family，并清理 refresh cookie。
+- 当前 access token 会因为对应 session 被撤销而失效。
+
+### 5.5 修改密码
+
+- 方法：`POST`
+- 路径：`/api/admin/auth/change-password`
+- 鉴权：是
+- Cookie：建议携带 refresh cookie
+- 请求体：
+
+```json
+{
+  "oldPassword": "Admin123!",
+  "newPassword": "ChangeMe123!",
+  "confirmPassword": "ChangeMe123!"
+}
+```
+
+- 返回：`Result<Void>`
+
+说明：
+
+- 修改成功后，后端会撤销该管理员全部设备的登录会话，并清理当前响应的 refresh cookie；其他账号不受影响。
+- 旧 access token 和 refresh token 在后续请求中均不可继续使用，密码更新与会话撤销在同一事务内完成。
+- 前端应清空本地 access token 并引导管理员重新登录。
 
 ## 6. 文件管理接口
 
@@ -467,14 +509,6 @@ Authorization: Bearer {token}
 - 路径：`/api/public/resources/{collectionId}/items`
 - 返回：`Result<List<ResourceItemVO>>`
 
-### 7.8 友链
-
-#### 获取友链列表
-
-- 方法：`GET`
-- 路径：`/api/public/friend-links`
-- 返回：`Result<List<FriendLinkVO>>`
-
 ## 8. 后台接口
 
 ### 8.1 文章管理
@@ -645,28 +679,7 @@ Authorization: Bearer {token}
 }
 ```
 
-### 8.8 友链管理
-
-- 列表：`GET /api/admin/friend-links`
-- 详情：`GET /api/admin/friend-links/{id}`
-- 新增：`POST /api/admin/friend-links`
-- 编辑：`PUT /api/admin/friend-links/{id}`
-- 删除：`DELETE /api/admin/friend-links/{id}`
-
-请求体 `FriendLinkSaveRequest`：
-
-```json
-{
-  "siteName": "示例站点",
-  "siteUrl": "https://example.com",
-  "avatar": "https://...",
-  "description": "一个专注学习记录的博客",
-  "status": "approved",
-  "sort": 1
-}
-```
-
-### 8.9 站点配置管理
+### 8.8 站点配置管理
 
 - 获取：`GET /api/admin/site-config`
 - 更新：`PUT /api/admin/site-config`

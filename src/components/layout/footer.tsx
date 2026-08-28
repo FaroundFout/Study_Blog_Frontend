@@ -5,17 +5,25 @@ import { usePathname } from "next/navigation";
 import { Github, Rss } from "lucide-react";
 
 import { FOOTER_LINKS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import type { SiteInfo } from "@/types";
 
 export function Footer({ siteInfo }: { siteInfo: SiteInfo }) {
   const pathname = usePathname();
+  const isImmersiveReader = /^\/(articles|diaries|projects|resources)\/[^/]+/.test(pathname);
+  const isCatalogPage = ["/articles", "/diaries", "/projects", "/resources", "/archives", "/about"].includes(pathname);
 
-  if (pathname === "/" || pathname.startsWith("/admin") || pathname.startsWith("/write")) {
+  if (pathname === "/" || isCatalogPage || pathname.startsWith("/admin") || pathname.startsWith("/write")) {
     return null;
   }
 
   return (
-    <footer className="mt-20 border-t border-border/70 bg-transparent">
+    <footer
+      className={cn(
+        "mt-20 border-t border-border/70 bg-transparent",
+        isImmersiveReader && "immersive-reader-footer",
+      )}
+    >
       <div className="mx-auto grid w-full max-w-[1180px] gap-8 px-5 py-10 md:grid-cols-[1.2fr_0.8fr] md:px-7">
         <div className="space-y-3">
           <h2 className="page-section-title text-[1.06rem] md:text-[1.12rem]">

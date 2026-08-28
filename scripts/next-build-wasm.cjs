@@ -13,7 +13,6 @@ async function main() {
   ensureNextInstalled();
   addPreloadToNodeOptions();
   await preloadWasmBindings();
-  process.env.STUDY_BLOG_BUILD_PHASE = "production-build";
   runNextCli("build", extraArgs);
 }
 

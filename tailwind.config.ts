@@ -36,7 +36,16 @@ const config: Config = {
         "primary-foreground": "hsl(var(--primary-foreground))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
-        ring: "hsl(var(--ring))"
+        ring: "hsl(var(--ring))",
+        catalog: {
+          paper: "var(--catalog-paper)",
+          card: "var(--catalog-card)",
+          muted: "var(--catalog-card-muted)",
+          ink: "var(--catalog-ink)",
+          soft: "var(--catalog-ink-soft)",
+          cobalt: "var(--catalog-cobalt)",
+          red: "var(--catalog-red)"
+        }
       },
       borderRadius: {
         xl: "1.25rem",
@@ -44,7 +53,8 @@ const config: Config = {
       },
       boxShadow: {
         soft: "0 18px 45px -22px rgba(66, 78, 110, 0.22)",
-        float: "0 16px 36px -16px rgba(84, 102, 156, 0.28)"
+        float: "0 16px 36px -16px rgba(84, 102, 156, 0.28)",
+        catalog: "8px 10px 0 rgba(51, 43, 31, 0.14)"
       },
       backgroundImage: {
         "soft-grid":

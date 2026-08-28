@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, ExternalLink, FileImage, Files, Loader2, RefreshCw, Search, Trash2, Upload } from "lucide-react";
+import { Copy, ExternalLink, FileImage, Files, RefreshCw, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -13,6 +13,10 @@ import {
   looksLikeImage
 } from "@/components/admin/admin-page-kit";
 import { EmptyState } from "@/components/common/empty-state";
+import {
+  UploadProgressBar,
+  type UploadProgressState
+} from "@/components/common/upload-progress-bar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,16 +54,21 @@ function MediaCard({
   const isImage = looksLikeImage(file.fileUrl, file.contentType);
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group flex h-full flex-col overflow-hidden rounded-[1.55rem] border text-left transition-all duration-300 ${
+    <div
+      className={`group relative flex h-full flex-col overflow-hidden rounded-[1.55rem] border text-left transition-all duration-300 ${
         active
           ? "border-[#62d4cb]/45 bg-white/92 shadow-[0_22px_36px_-30px_rgba(62,116,117,0.4)] dark:border-[#2dd4bf]/22 dark:bg-[#0d2d33]/84 dark:shadow-[0_22px_36px_-30px_rgba(2,6,23,0.76)]"
           : "border-border/65 bg-background/72 hover:-translate-y-0.5 hover:border-foreground/12 hover:shadow-[0_22px_36px_-32px_rgba(62,84,89,0.24)] dark:border-white/8 dark:bg-white/[0.04] dark:hover:border-white/16 dark:hover:shadow-[0_22px_36px_-30px_rgba(2,6,23,0.78)]"
       }`}
     >
-      <div className="relative flex h-40 items-center justify-center overflow-hidden border-b border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))] dark:border-white/8 dark:bg-[linear-gradient(135deg,rgba(13,21,37,0.96),rgba(9,16,29,0.95))]">
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={`选择文件：${file.originalName}`}
+        aria-pressed={active}
+        className="absolute inset-0 z-10 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      />
+      <div className="pointer-events-none relative flex h-40 items-center justify-center overflow-hidden border-b border-border/60 bg-[linear-gradient(135deg,rgba(255,255,255,0.8),rgba(243,247,244,0.95))] dark:border-white/8 dark:bg-[linear-gradient(135deg,rgba(13,21,37,0.96),rgba(9,16,29,0.95))]">
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={file.fileUrl} alt={file.originalName} className="h-full w-full object-cover" />
@@ -88,16 +97,13 @@ function MediaCard({
               {formatDate(file.createdAt, "YYYY/MM/DD HH:mm")}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="relative z-20 flex items-center gap-2">
             <Button
               type="button"
               size="sm"
               variant="ghost"
               className="rounded-full"
-              onClick={(event) => {
-                event.stopPropagation();
-                onCopy();
-              }}
+              onClick={onCopy}
             >
               <Copy className="h-3.5 w-3.5" />
               复制
@@ -107,10 +113,7 @@ function MediaCard({
                 type="button"
                 size="sm"
                 className="rounded-full"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onUse();
-                }}
+                onClick={onUse}
               >
                 使用
               </Button>
@@ -118,7 +121,7 @@ function MediaCard({
           </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -138,6 +141,7 @@ export function AdminMediaLibrary({
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{
     tone: "info" | "success" | "error";
@@ -262,9 +266,35 @@ export function AdminMediaLibrary({
 
     setUploading(true);
     setNotice({ tone: "info", text: `正在上传 ${file.name}...` });
+    setUploadProgress({
+      fileName: file.name,
+      progress: { loaded: 0, total: file.size, percent: 0 },
+      status: "uploading"
+    });
 
     try {
-      const payload = await uploadAdminFile(token, file);
+      const payload = await uploadAdminFile(token, file, {
+        onProgress: (progress) => {
+          setUploadProgress((current) => ({
+            fileName: file.name,
+            progress,
+            status: current?.status === "retrying" ? "retrying" : "uploading"
+          }));
+        },
+        onAuthRetry: () => {
+          setNotice({ tone: "info", text: "会话已刷新，正在重新上传。" });
+          setUploadProgress((current) => ({
+            fileName: file.name,
+            progress: current?.progress ?? { loaded: 0, total: file.size, percent: 0 },
+            status: "retrying"
+          }));
+        }
+      });
+      setUploadProgress((current) => current ? {
+        ...current,
+        progress: { ...current.progress, percent: 100 },
+        status: "success"
+      } : null);
       setNotice({ tone: "success", text: `${payload.originalName} 上传完成。` });
       setSelectedId(payload.id);
       setSelectedFile(payload);
@@ -274,6 +304,7 @@ export function AdminMediaLibrary({
         onSelect(payload);
       }
     } catch (error) {
+      setUploadProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "文件上传失败。"
@@ -314,12 +345,12 @@ export function AdminMediaLibrary({
     }
   };
 
-  if (!hydrated || !token || loading) {
+  if (!hydrated || !token || (loading && !filePage)) {
     return <AdminPageSkeleton sections={selectionMode ? 2 : 3} />;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={loading}>
       <Card className={selectionMode ? "space-y-5 p-5" : "space-y-6 p-5 md:p-6"}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
@@ -339,10 +370,10 @@ export function AdminMediaLibrary({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <label className="inline-flex cursor-pointer">
-              <input type="file" className="hidden" onChange={handleUpload} />
+            <label className={`inline-flex ${uploading ? "cursor-not-allowed opacity-65" : "cursor-pointer"}`}>
+              <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} />
               <span className="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground shadow-[0_10px_22px_-16px_rgba(63,73,99,0.5)] transition-transform hover:-translate-y-0.5">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                <Upload className="h-4 w-4" />
                 {uploading ? "上传中..." : "上传文件"}
               </span>
             </label>
@@ -352,6 +383,8 @@ export function AdminMediaLibrary({
             </Button>
           </div>
         </div>
+
+        {uploadProgress ? <UploadProgressBar {...uploadProgress} /> : null}
 
         {!selectionMode ? <AdminMetricStrip items={stats} /> : null}
 
@@ -388,6 +421,7 @@ export function AdminMediaLibrary({
           </Button>
         </form>
 
+        {loading ? <AdminInlineLoader label="正在更新媒体列表..." /> : null}
         {notice ? <AdminNotice tone={notice.tone}>{notice.text}</AdminNotice> : null}
       </Card>
 

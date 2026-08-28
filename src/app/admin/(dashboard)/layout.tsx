@@ -1,9 +1,12 @@
 import { AdminDashboardShell } from "@/components/admin/admin-dashboard-shell";
+import { getSiteInfo } from "@/lib/api";
 
-export default function AdminDashboardLayout({
+export default async function AdminDashboardLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <AdminDashboardShell>{children}</AdminDashboardShell>;
+  const siteInfo = await getSiteInfo();
+
+  return <AdminDashboardShell siteInfo={siteInfo}>{children}</AdminDashboardShell>;
 }

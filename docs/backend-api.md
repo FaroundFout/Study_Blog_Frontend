@@ -272,7 +272,8 @@ Authorization: Bearer {token}
 ```json
 {
   "oldPassword": "Admin123!",
-  "newPassword": "ChangeMe123!"
+  "newPassword": "ChangeMe123!",
+  "confirmPassword": "ChangeMe123!"
 }
 ```
 
@@ -280,7 +281,8 @@ Authorization: Bearer {token}
 
 说明：
 
-- 修改成功后，后端会清理 refresh cookie。
+- 修改成功后，后端会撤销该管理员全部设备的登录会话，并清理当前响应的 refresh cookie；其他账号不受影响。
+- 旧 access token 和 refresh token 在后续请求中均不可继续使用，密码更新与会话撤销在同一事务内完成。
 - 前端应清空本地 access token 并引导管理员重新登录。
 
 ## 6. 文件管理接口

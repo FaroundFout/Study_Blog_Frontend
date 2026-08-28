@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Github, Globe2 } from "lucide-react";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarRange, Github, Globe2 } from "lucide-react";
 
-import { MarkdownRenderer } from "@/components/common/markdown-renderer";
-import { TagList } from "@/components/common/tag-list";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { getProjectBySlug } from "@/lib/api";
+import { ProjectCaseStudy } from "@/components/projects/project-case-study";
+import { getProjectBySlug, getProjectNavigation } from "@/lib/api";
 import { PROJECT_STATUS_LABELS } from "@/lib/constants";
-import { formatDate, splitCommaText } from "@/lib/utils";
+import { extractHeadings, formatDate, splitCommaText } from "@/lib/utils";
 
 interface ProjectDetailPageProps {
   params: {
@@ -23,7 +19,7 @@ export async function generateMetadata({
   const project = await getProjectBySlug(params.slug);
 
   return {
-    title: project ? project.name : "项目不存在",
+    title: project?.name || "项目不存在",
     description: project?.summary
   };
 }
@@ -35,55 +31,64 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     notFound();
   }
 
-  return (
-    <div className="detail-shell mx-auto max-w-5xl">
-      <Card className="page-panel overflow-hidden">
-        <div className="space-y-6 p-6 md:p-8">
-          <Link href="/projects" className="detail-backlink">
-            <ArrowLeft className="h-4 w-4" />
-            返回项目列表
-          </Link>
-          <div className="space-y-4">
-            <p className="detail-kicker">
-              {PROJECT_STATUS_LABELS[project.status ?? ""] ?? project.status}
-            </p>
-            <h1 className="detail-title">{project.name}</h1>
-            <p className="detail-summary">{project.summary}</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {project.githubUrl ? (
-              <a href={project.githubUrl} target="_blank" rel="noreferrer">
-                <Button className="page-button-text">
-                  <Github className="h-4 w-4" />
-                  GitHub
-                </Button>
-              </a>
-            ) : null}
-            {project.demoUrl ? (
-              <a href={project.demoUrl} target="_blank" rel="noreferrer">
-                <Button variant="secondary" className="page-button-text">
-                  <Globe2 className="h-4 w-4" />
-                  在线预览
-                </Button>
-              </a>
-            ) : null}
-          </div>
-          <div className="grid gap-4 md:grid-cols-[1fr_260px]">
-            <TagList tags={splitCommaText(project.techStack)} />
-            <div className="page-note-panel">
-              <p className="page-note-copy inline-flex items-center gap-2">
-                <CalendarRange className="h-4 w-4" />
-                {formatDate(project.startDate, "YYYY.MM")} -{" "}
-                {project.endDate ? formatDate(project.endDate, "YYYY.MM") : "至今"}
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
+  const navigation = await getProjectNavigation(params.slug);
+  const status = PROJECT_STATUS_LABELS[project.status ?? ""] ?? project.status ?? "未设置";
+  const techStack = splitCommaText(project.techStack);
+  const timeline = getProjectTimeline(project.startDate, project.endDate);
+  const githubUrl = getPublicWebUrl(project.githubUrl);
+  const demoUrl = getPublicWebUrl(project.demoUrl);
+  const actions = [
+    githubUrl
+      ? { label: "GitHub", href: githubUrl, icon: Github, external: true }
+      : null,
+    demoUrl
+      ? { label: "在线预览", href: demoUrl, icon: Globe2, external: true }
+      : null
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
 
-      <Card className="page-panel p-6 md:p-9">
-        <MarkdownRenderer content={project.descriptionMd} />
-      </Card>
-    </div>
+  return (
+    <ProjectCaseStudy
+      recordNumber={`P-${String(project.id).padStart(3, "0")}`}
+      title={project.name}
+      summary={project.summary}
+      status={status}
+      statusHref={`/projects?status=${project.status || ""}`}
+      timeline={timeline}
+      techStack={techStack}
+      actions={actions}
+      coverImage={project.coverImage}
+      coverAlt={`${project.name} 项目封面`}
+      content={project.descriptionMd}
+      headings={extractHeadings(project.descriptionMd)}
+      previous={navigation.prev ? { label: navigation.prev.name, href: `/projects/${navigation.prev.slug}` } : null}
+      next={navigation.next ? { label: navigation.next.name, href: `/projects/${navigation.next.slug}` } : null}
+    />
   );
+}
+
+function getProjectTimeline(startDate?: string, endDate?: string) {
+  if (startDate && endDate) {
+    return `${formatDate(startDate, "YYYY.MM")} — ${formatDate(endDate, "YYYY.MM")}`;
+  }
+
+  if (startDate) {
+    return `${formatDate(startDate, "YYYY.MM")} — 至今`;
+  }
+
+  if (endDate) {
+    return `截至 ${formatDate(endDate, "YYYY.MM")}`;
+  }
+
+  return undefined;
+}
+
+function getPublicWebUrl(value?: string) {
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
 }

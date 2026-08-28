@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import NextTopLoader from "nextjs-toploader";
+import { SkeletonTheme } from "react-loading-skeleton";
 
 import { Footer } from "@/components/layout/footer";
 import { Navbar } from "@/components/layout/navbar";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { getSiteInfo } from "@/lib/api";
 
+import "react-loading-skeleton/dist/skeleton.css";
 import "./globals.css";
 
 const displayFont = localFont({
@@ -191,14 +194,29 @@ export default async function RootLayout({
       <body
         className={`${displayFont.variable} ${uiFont.variable} ${monoFont.variable} ${markdownBodyFont.variable} ${markdownCodeFont.variable} ${markdownHeadingFont.variable} ${pingFangRegular.variable} ${wenkaiMonoTcFont.variable} min-h-screen bg-background font-sans text-foreground antialiased`}
       >
+        <NextTopLoader
+          color="hsl(var(--primary))"
+          height={3}
+          showSpinner={false}
+          shadow={false}
+          showForHashAnchor={false}
+          zIndex={1600}
+        />
         <ThemeProvider>
-          <div className="relative min-h-screen">
-            <Navbar siteInfo={siteInfo} />
-            <main className="mx-auto w-full max-w-[1180px] space-y-10 px-5 pb-16 pt-9 md:space-y-14 md:px-7 md:pt-11">
-              {children}
-            </main>
-            <Footer siteInfo={siteInfo} />
-          </div>
+          <SkeletonTheme
+            baseColor="hsl(var(--accent) / 0.82)"
+            highlightColor="hsl(var(--card) / 0.96)"
+            borderRadius="1.25rem"
+            duration={1.45}
+          >
+            <div className="relative min-h-screen">
+              <Navbar siteInfo={siteInfo} />
+              <main className="public-main mx-auto w-full max-w-[1568px] space-y-10 px-5 pb-10 pt-7 md:space-y-12 md:px-7 md:pt-8 xl:px-10">
+                {children}
+              </main>
+              <Footer siteInfo={siteInfo} />
+            </div>
+          </SkeletonTheme>
         </ThemeProvider>
       </body>
     </html>

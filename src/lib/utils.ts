@@ -179,7 +179,11 @@ export function sortProjects(items: Project[]) {
   });
 }
 
-export function createArchiveItems(articles: Article[], diaries: Diary[]): ArchiveItem[] {
+export function createArchiveItems(
+  articles: Article[],
+  diaries: Diary[],
+  projects: Project[] = [],
+): ArchiveItem[] {
   const articleItems: ArchiveItem[] = articles.map((article) => ({
     type: "article",
     id: article.id,
@@ -198,7 +202,18 @@ export function createArchiveItems(articles: Article[], diaries: Diary[]): Archi
     summary: diary.summary
   }));
 
-  return [...articleItems, ...diaryItems].sort(
+  const projectItems: ArchiveItem[] = projects.map((project) => ({
+    type: "project",
+    id: project.id,
+    title: project.name,
+    href: `/projects/${project.slug}`,
+    date: project.startDate ?? project.createdAt ?? "",
+    summary: project.summary
+  }));
+
+  return [...articleItems, ...diaryItems, ...projectItems]
+    .filter((item) => Boolean(item.date))
+    .sort(
     (a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf(),
   );
 }

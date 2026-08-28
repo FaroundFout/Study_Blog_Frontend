@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, ExternalLink, ImagePlus, Upload } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import { AdminMediaLibrary } from "@/components/admin/admin-media-library";
 import {
@@ -14,11 +14,16 @@ import {
 } from "@/components/admin/admin-page-kit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  UploadProgressBar,
+  type UploadProgressState
+} from "@/components/common/upload-progress-bar";
 import { uploadAdminFile } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 import type { UploadedFilePayload } from "@/types";
 
 export function AdminMediaField({
+  name,
   label,
   value,
   placeholder,
@@ -26,6 +31,7 @@ export function AdminMediaField({
   accept = "image/*",
   onChange
 }: {
+  name?: string;
   label: string;
   value: string;
   placeholder: string;
@@ -33,9 +39,11 @@ export function AdminMediaField({
   accept?: string;
   onChange: (value: string) => void;
 }) {
+  const inputId = useId();
   const { token } = useAuthStore();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
   const [notice, setNotice] = useState<{
     tone: "info" | "success" | "error";
     text: string;
@@ -50,12 +58,39 @@ export function AdminMediaField({
 
     setUploading(true);
     setNotice({ tone: "info", text: `正在上传 ${file.name}...` });
+    setUploadProgress({
+      fileName: file.name,
+      progress: { loaded: 0, total: file.size, percent: 0 },
+      status: "uploading"
+    });
 
     try {
-      const payload = await uploadAdminFile(token, file);
+      const payload = await uploadAdminFile(token, file, {
+        onProgress: (progress) => {
+          setUploadProgress((current) => ({
+            fileName: file.name,
+            progress,
+            status: current?.status === "retrying" ? "retrying" : "uploading"
+          }));
+        },
+        onAuthRetry: () => {
+          setNotice({ tone: "info", text: "会话已刷新，正在重新上传。" });
+          setUploadProgress((current) => ({
+            fileName: file.name,
+            progress: current?.progress ?? { loaded: 0, total: file.size, percent: 0 },
+            status: "retrying"
+          }));
+        }
+      });
       onChange(payload.fileUrl);
+      setUploadProgress((current) => current ? {
+        ...current,
+        progress: { ...current.progress, percent: 100 },
+        status: "success"
+      } : null);
       setNotice({ tone: "success", text: `${payload.originalName} 已回填到当前字段。` });
     } catch (error) {
+      setUploadProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "上传失败，请稍后再试。"
@@ -89,12 +124,12 @@ export function AdminMediaField({
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
-          <p className={adminFieldLabelClassName}>{label}</p>
+          <label htmlFor={inputId} className={adminFieldLabelClassName}>{label}</label>
           {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex cursor-pointer">
-            <input type="file" accept={accept} className="hidden" onChange={handleUpload} />
+          <label className={`inline-flex ${uploading ? "cursor-not-allowed opacity-65" : "cursor-pointer"}`}>
+            <input type="file" accept={accept} className="hidden" onChange={handleUpload} disabled={uploading} />
             <span className="inline-flex h-9 items-center gap-2 rounded-full border border-border/70 bg-background/76 px-3 text-xs text-muted-foreground transition-colors hover:text-foreground">
               <Upload className="h-3.5 w-3.5" />
               {uploading ? "上传中..." : "上传"}
@@ -108,10 +143,15 @@ export function AdminMediaField({
       </div>
 
       <Input
+        id={inputId}
+        name={name ?? inputId}
+        autoComplete="off"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
       />
+
+      {uploadProgress ? <UploadProgressBar {...uploadProgress} /> : null}
 
       {notice ? <AdminNotice tone={notice.tone}>{notice.text}</AdminNotice> : null}
 

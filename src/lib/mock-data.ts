@@ -23,8 +23,8 @@ export * from "@/lib/mock/site";
 export * from "@/lib/mock/uploads";
 
 export const mockHomeData: HomeData = createHomeData({
-  latestArticles: mockArticles.slice(0, 4),
-  latestDiaries: mockDiaries.slice(0, 4),
+  latestArticles: mockArticles.slice(0, 6),
+  latestDiaries: mockDiaries.slice(0, 5),
   featuredProjects: mockProjects.filter((item) => item.isFeatured === 1).slice(0, 4),
   resourceCollections: mockResourceCollections
 });

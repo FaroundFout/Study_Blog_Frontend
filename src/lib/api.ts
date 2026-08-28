@@ -20,7 +20,11 @@ import {
   mockTags,
   paginate
 } from "@/lib/mock-data";
-import { authorizedAdminRequest, normalizeAdminAccessToken } from "@/lib/admin-auth";
+import {
+  authorizedAdminRequest,
+  authorizedAdminUploadRequest,
+  normalizeAdminAccessToken
+} from "@/lib/admin-auth";
 import { ApiError, request, requestWithFallback } from "@/lib/request";
 import { excerpt, searchContent, sortArticles, sortDiaries, sortProjects } from "@/lib/utils";
 import type {
@@ -30,6 +34,7 @@ import type {
   AdminDiaryQuery,
   AdminDiarySavePayload,
   AdminHomeMusicUploadPayload,
+  AdminUploadRequestOptions,
   AdminHomeMusicQuery,
   AdminProjectQuery,
   AdminProjectSavePayload,
@@ -292,7 +297,9 @@ export async function getDiaries(
   return requestWithFallback<PageResponse<Diary>>("/api/public/diaries", fallback, {
     params: {
       pageNum: query.pageNum ?? 1,
-      pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE
+      pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE,
+      keyword: query.keyword,
+      month: query.month
     },
     revalidate: 60
   });
@@ -332,10 +339,39 @@ export async function getProjects(
     params: {
       pageNum: query.pageNum ?? 1,
       pageSize: query.pageSize ?? DEFAULT_LIST_PAGE_SIZE,
-      isFeatured: query.featured ? 1 : undefined
+      isFeatured: query.featured ? 1 : undefined,
+      keyword: query.keyword,
+      status: query.status
     },
     revalidate: 60
   });
+}
+
+export async function getDiaryNavigation(id: number) {
+  const diaries = await getAllDiaries();
+  const currentIndex = diaries.findIndex((item) => item.id === id);
+
+  if (currentIndex === -1) {
+    return { prev: null, next: null };
+  }
+
+  return {
+    prev: currentIndex > 0 ? diaries[currentIndex - 1] : null,
+    next: currentIndex < diaries.length - 1 ? diaries[currentIndex + 1] : null
+  };
+}
+
+export async function getAllProjects() {
+  const remote = await requestWithFallback<PageResponse<Project>>(
+    "/api/public/projects",
+    paginate(sortProjects(mockProjects), 1, CONTENT_FETCH_SIZE),
+    {
+      params: { pageNum: 1, pageSize: CONTENT_FETCH_SIZE },
+      revalidate: 60
+    },
+  );
+
+  return sortProjects(remote.list);
 }
 
 export async function getProjectBySlug(slug: string): Promise<ProjectDetail | null> {
@@ -354,6 +390,20 @@ export async function getProjectBySlug(slug: string): Promise<ProjectDetail | nu
 
     throw error;
   }
+}
+
+export async function getProjectNavigation(slug: string) {
+  const projects = await getAllProjects();
+  const currentIndex = projects.findIndex((item) => item.slug === slug);
+
+  if (currentIndex === -1) {
+    return { prev: null, next: null };
+  }
+
+  return {
+    prev: currentIndex > 0 ? projects[currentIndex - 1] : null,
+    next: currentIndex < projects.length - 1 ? projects[currentIndex + 1] : null
+  };
 }
 
 export async function getProjectById(id: number): Promise<ProjectDetail | null> {
@@ -767,6 +817,7 @@ export async function updateAdminSiteConfig(
 export async function uploadAdminHomeMusic(
   token: string,
   payload: AdminHomeMusicUploadPayload,
+  options: AdminUploadRequestOptions = {},
 ) {
   const formData = new FormData();
   formData.append("title", payload.title);
@@ -789,10 +840,12 @@ export async function uploadAdminHomeMusic(
     formData.append("status", payload.status);
   }
 
-  return adminRequest<HomeMusic>(token, "/api/admin/home/music", {
-    method: "POST",
-    body: formData,
-  });
+  return authorizedAdminUploadRequest<HomeMusic>(
+    "/api/admin/home/music",
+    token,
+    formData,
+    options,
+  );
 }
 
 export async function getAdminHomeMusicPage(
@@ -828,10 +881,12 @@ export async function uploadAdminFile(
     formData.append("directory", options.directory);
   }
 
-  return adminRequest<UploadedFilePayload>(token, "/api/admin/upload", {
-    method: "POST",
-    body: formData,
-  });
+  return authorizedAdminUploadRequest<UploadedFilePayload>(
+    "/api/admin/upload",
+    token,
+    formData,
+    options,
+  );
 }
 
 export async function getAdminUploadedFiles(
@@ -856,10 +911,6 @@ export async function deleteAdminUploadedFile(token: string, id: number) {
   return adminRequest<void>(token, `/api/admin/upload/${id}`, {
     method: "DELETE"
   });
-}
-
-export function getFeaturedArticle() {
-  return sortArticles(mockArticles).find((item) => item.isTop === 1) ?? mockArticles[0];
 }
 
 export function getDiaryPreviewText(diary: Diary | DiaryDetail) {

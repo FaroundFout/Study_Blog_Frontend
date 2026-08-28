@@ -28,7 +28,39 @@ export interface SiteInfo {
   xiaohongshuUrl?: string;
   email?: string;
   aboutMeMd?: string;
+  aboutPageJson?: string;
   announcement?: string;
+}
+
+export interface AboutFocusItem {
+  title: string;
+  note: string;
+}
+
+export interface AboutMilestone {
+  date: string;
+  text: string;
+}
+
+export interface AboutPageContent {
+  profileSectionTitle: string;
+  profileTitle: string;
+  profileBio: string;
+  location: string;
+  timezone: string;
+  status: string;
+  noteTitle: string;
+  focusTitle: string;
+  timelineTitle: string;
+  contactTitle: string;
+  quote: string;
+  contactNote: string;
+  contactEmptyText: string;
+  githubNote: string;
+  bilibiliNote: string;
+  xiaohongshuNote: string;
+  focusItems: AboutFocusItem[];
+  milestones: AboutMilestone[];
 }
 
 export interface Category {
@@ -143,7 +175,7 @@ export interface ArchiveRecord {
 }
 
 export interface ArchiveItem {
-  type: "article" | "diary";
+  type: "article" | "diary" | "project";
   id: number;
   title: string;
   href: string;
@@ -377,6 +409,7 @@ export interface AdminSiteConfigUpdatePayload {
   xiaohongshuUrl?: string;
   email?: string;
   aboutMeMd?: string;
+  aboutPageJson?: string;
   announcement?: string;
 }
 
@@ -391,6 +424,19 @@ export interface AdminHomeMusicUploadPayload {
   status?: "draft" | "published" | "archived";
 }
 
+export interface UploadProgressSnapshot {
+  loaded: number;
+  total?: number;
+  percent: number | null;
+}
+
+export type UploadProgressHandler = (progress: UploadProgressSnapshot) => void;
+
+export interface AdminUploadRequestOptions {
+  onProgress?: UploadProgressHandler;
+  onAuthRetry?: () => void;
+}
+
 export interface AdminHomeMusicQuery {
   pageNum?: number;
   pageSize?: number;
@@ -398,7 +444,7 @@ export interface AdminHomeMusicQuery {
   status?: "draft" | "published" | "archived" | "";
 }
 
-export interface AdminUploadFileOptions {
+export interface AdminUploadFileOptions extends AdminUploadRequestOptions {
   directory?: string;
 }
 

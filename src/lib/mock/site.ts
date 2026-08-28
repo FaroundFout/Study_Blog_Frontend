@@ -1,4 +1,5 @@
 import type { AdminUser, Category, HomeData, SiteInfo, Tag } from "@/types";
+import { DEFAULT_ABOUT_PAGE_CONTENT } from "@/lib/about-page-content";
 
 export const mockNow = "2026-04-14T09:00:00";
 
@@ -28,7 +29,8 @@ export const mockSiteInfo: SiteInfo = {
 
 ## 我希望这个站点能做到什么
 不是炫技，而是把每天的学习成果变成一张能持续生长的地图。
-  `.trim()
+  `.trim(),
+  aboutPageJson: JSON.stringify(DEFAULT_ABOUT_PAGE_CONTENT)
 };
 
 export const mockCategories: Category[] = [

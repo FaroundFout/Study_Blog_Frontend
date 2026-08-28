@@ -20,6 +20,7 @@
 - 浏览器端未配置 `NEXT_PUBLIC_API_BASE_URL` 时，会默认请求当前页面同源地址。
 - 服务端渲染和构建阶段未配置 `NEXT_PUBLIC_API_BASE_URL` 时，会兜底请求 `http://localhost:8080`。
 - 生产构建建议显式写入线上域名，并设置 `NEXT_PUBLIC_ENABLE_MOCK=false`。
+- 生产构建和运行时均禁止 mock fallback，即使本地环境文件误设为 `true` 也不例外。接口失败必须解决，不能依靠演示内容完成发布。
 
 ## 2. 本地生产配置
 
@@ -53,12 +54,14 @@ npm run build
 Test-Path .\.next\standalone\server.js
 ```
 
-返回 `True` 后进入打包步骤。
+必须先确认本次构建退出码为 0、没有接口错误，再检查产物。仅有旧的 `server.js` 文件存在不能证明本次构建成功。
 
 如果构建日志出现 `TypeError: fetch failed` 且原因是 `ECONNREFUSED`，通常是构建阶段访问不到后端。处理方式：
 
-- 启动本地后端 `localhost:8080` 后重新构建。
+- 如果使用同机后端，启动 `localhost:8080`，并确保构建采用的 API 地址确实指向它，再重新构建；不要把仅本机可用的地址写进正式浏览器配置后发布。
 - 或在 `.env.production.local` 中把 `NEXT_PUBLIC_API_BASE_URL` 设置为线上可访问后端域名。
+
+网络超时、5xx 和无效 JSON 也不会再回退到演示数据。构建失败后不要执行打包、上传步骤，旧的 `deploy` ZIP 也不会自动更新。
 
 ## 4. 本地打包
 

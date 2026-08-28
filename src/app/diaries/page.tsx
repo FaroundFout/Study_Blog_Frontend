@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
+import dayjs from "dayjs";
 
-import { DiaryCard } from "@/components/cards/diary-card";
+import {
+  CatalogNavigation,
+  CatalogResultsRegion
+} from "@/components/common/catalog-navigation-transition";
 import { EmptyState } from "@/components/common/empty-state";
 import { Pagination } from "@/components/common/pagination";
 import { SearchBar } from "@/components/common/search-bar";
-import { PageHero } from "@/components/sections/page-hero";
+import { DiaryMonthNavigator, type DiaryMonthSummary } from "@/components/diaries/diary-month-navigator";
+import { DiaryMonthSection } from "@/components/diaries/diary-month-section";
+import { CatalogPage } from "@/components/sections/catalog-page";
 import { getDiaries } from "@/lib/api";
 import { DEFAULT_LIST_PAGE_SIZE } from "@/lib/constants";
+import type { Diary } from "@/types";
 
 export const metadata: Metadata = {
   title: "学习日记"
 };
+
+const DIARY_RESULTS_ID = "diary-catalog-results";
 
 interface DiariesPageProps {
   searchParams: {
@@ -27,45 +36,83 @@ export default async function DiariesPage({ searchParams }: DiariesPageProps) {
     keyword: searchParams.keyword
   });
 
+  const monthGroups = diaryPage.list.reduce<Record<string, Diary[]>>((groups, diary) => {
+    const key = dayjs(diary.diaryDate).format("YYYY-MM");
+    groups[key] = [...(groups[key] || []), diary];
+    return groups;
+  }, {});
+
+  const months: DiaryMonthSummary[] = Object.entries(monthGroups).map(([key, diaries]) => ({
+    key,
+    label: dayjs(`${key}-01`).format("YYYY 年 M 月"),
+    anchor: `month-${key}`,
+    count: diaries.length,
+    hours: diaries.reduce((total, diary) => total + (diary.studyHours || 0), 0)
+  }));
+  const pageHours = diaryPage.list.reduce((total, diary) => total + (diary.studyHours || 0), 0);
+  const contentKey = JSON.stringify([
+    "diaries",
+    page,
+    searchParams.keyword ?? ""
+  ]);
+
   return (
-    <div className="page-shell">
-      <PageHero
-        eyebrow="Diary Flow"
+    <CatalogNavigation contentKey={contentKey} resultsId={DIARY_RESULTS_ID}>
+      <CatalogPage
+        index="02"
+        eyebrow="Diary Index"
         title="学习日记"
-        description="更接近每天推进过程的记录。这里保留当天的问题、节奏、情绪，以及那些还没有完全想清楚的片段。"
-      />
+        description="记录每天的学习进展、思考与灵感，让成长有迹可循。"
+        mobileShowControls={false}
+        controlsLabel="搜索学习日记"
+        controlsMeta="Search / Diary"
+        controls={
+          <SearchBar
+            action="/diaries"
+            placeholder="搜索学习日记关键词…"
+            defaultValue={searchParams.keyword}
+            showButton={false}
+          />
+        }
+      >
+        <CatalogResultsRegion
+          id={DIARY_RESULTS_ID}
+          label="学习日记列表"
+          variant="diaries"
+        >
+          {diaryPage.list.length ? (
+            <div className="diary-catalog-layout">
+              <DiaryMonthNavigator total={diaryPage.total} pageHours={pageHours} months={months} />
+              <div className="diary-month-stack">
+                {months.map((month) => (
+                  <DiaryMonthSection key={month.key} month={month} diaries={monthGroups[month.key]} />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              variant="catalog"
+              title="还没有公开的学习日记"
+              description="新的学习记录发布后，会按照日期依次出现在这里。"
+              actionHref="/articles"
+              actionLabel="去看文章"
+            />
+          )}
+        </CatalogResultsRegion>
 
-      <section className="page-panel p-5 md:p-6">
-        <SearchBar
-          action="/diaries"
-          placeholder="搜索日记标题或关键词"
-          defaultValue={searchParams.keyword}
-        />
-      </section>
-
-      {diaryPage.list.length ? (
-        <>
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {diaryPage.list.map((diary) => (
-              <DiaryCard key={diary.id} diary={diary} />
-            ))}
-          </div>
+        {diaryPage.list.length ? (
           <Pagination
             page={page}
             pageSize={diaryPage.pageSize}
             total={diaryPage.total}
             pathname="/diaries"
             query={{ keyword: searchParams.keyword }}
+            alwaysVisible
+            itemLabel="条记录"
+            ariaLabel="学习日记分页"
           />
-        </>
-      ) : (
-        <EmptyState
-          title="还没有匹配的学习日记"
-          description="可以换个关键词试试，或者先去看看最近更新的文章。"
-          actionHref="/articles"
-          actionLabel="去看文章"
-        />
-      )}
-    </div>
+        ) : null}
+      </CatalogPage>
+    </CatalogNavigation>
   );
 }

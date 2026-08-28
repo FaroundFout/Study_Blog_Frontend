@@ -1,75 +1,108 @@
-import Image from "next/image";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Code2,
+  ExternalLink,
+  FileText,
+  Globe2
+} from "lucide-react";
 import Link from "next/link";
-import { ArrowUpRight, Github, Link2 } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { normalizeProjectStage, type ProjectStage } from "@/components/projects/project-status";
 import { PROJECT_STATUS_LABELS } from "@/lib/constants";
-import { getProjectCoverImage, splitCommaText } from "@/lib/utils";
+import { cn, formatDate, splitCommaText } from "@/lib/utils";
 import type { Project } from "@/types";
 
-export function ProjectCard({ project }: { project: Project }) {
+interface ProjectCardProps {
+  project: Project;
+  index: number;
+  lead?: boolean;
+}
+
+const PROJECT_STAGE_CODES: Record<ProjectStage, string> = {
+  planning: "PLANNING",
+  ongoing: "ACTIVE",
+  completed: "COMPLETED",
+  archived: "ARCHIVED"
+};
+
+const PROJECT_STAMP_LABELS: Record<ProjectStage, string> = {
+  planning: "规划中",
+  ongoing: "进行中",
+  completed: "已完成",
+  archived: "已归档"
+};
+
+export function ProjectCard({ project, index, lead = false }: ProjectCardProps) {
   const href = `/projects/${encodeURIComponent(project.slug)}`;
-  const coverImage = getProjectCoverImage(project);
+  const stage = normalizeProjectStage(project.status);
+  const statusLabel =
+    PROJECT_STATUS_LABELS[project.status ?? ""] ?? project.status ?? PROJECT_STAMP_LABELS[stage];
+  const stampLabel = stage === "archived" ? PROJECT_STAMP_LABELS.archived : statusLabel;
+  const startDate = formatDate(project.startDate, "YYYY / MM / DD");
+  const projectYear = formatDate(project.startDate, "YYYY");
+  const stacks = splitCommaText(project.techStack).slice(0, 4);
+  const projectNumber = String(index).padStart(2, "0");
 
   return (
-    <Link href={href} className="group block">
-      <Card className="page-card-shell">
-        <div className="relative aspect-[16/10] overflow-hidden border-b border-border/60 bg-accent/55">
-          <Image
-            src={coverImage}
-            alt={project.name}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-          />
-          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/10 via-black/0 to-transparent" />
-          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-            {project.isFeatured ? <Badge>推荐</Badge> : null}
-            {project.status ? (
-              <Badge variant="secondary">
-                {PROJECT_STATUS_LABELS[project.status] ?? project.status}
-              </Badge>
-            ) : null}
-          </div>
-        </div>
+    <article
+      className={cn(
+        "project-work-card",
+        lead && "project-work-card-lead",
+        `project-work-card-${stage}`
+      )}
+    >
+      <Link href={href} className="project-folder-link group" aria-label={`查看项目：${project.name}`}>
+        <span className="project-folder-tab" aria-hidden="true">
+          {PROJECT_STAGE_CODES[stage]}
+        </span>
 
-        <div className="page-card-body">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 space-y-2.5">
-              <h3 className="page-card-title transition-colors group-hover:text-primary">
-                {project.name}
-              </h3>
-              <p className="page-card-summary line-clamp-3">{project.summary}</p>
+        <div className="project-folder-panel">
+          <header className="project-folder-register">
+            <span>PRJ — {projectYear} — {projectNumber}</span>
+          </header>
+
+          <div className="project-folder-sheet">
+            <div className="project-folder-content">
+              <span className="project-folder-punch" aria-hidden="true" />
+
+              <div className="project-folder-copy">
+                <h3>{project.name}</h3>
+                {stacks.length ? (
+                  <ul className="project-folder-stack" aria-label="项目技术栈">
+                    {stacks.map((stack) => (
+                      <li key={stack}>{stack}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <p>{project.summary}</p>
+              </div>
+
+              <span className="project-folder-stamp" aria-hidden="true">
+                <strong>{stampLabel}</strong>
+                <small>{PROJECT_STAGE_CODES[stage]}</small>
+              </span>
             </div>
-            <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </div>
 
-          <div className="flex flex-wrap gap-2">
-            {splitCommaText(project.techStack)
-              .slice(0, 4)
-              .map((stack) => (
-                <Badge key={stack} variant="secondary">
-                  {stack}
-                </Badge>
-              ))}
-          </div>
-
-          <div className="page-card-divider page-card-meta flex items-center gap-4">
-            {project.githubUrl ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Github className="h-3.5 w-3.5" />
-                GitHub
+            <footer className="project-folder-footer">
+              <span>
+                <CalendarDays aria-hidden="true" />
+                创建于 {startDate}
               </span>
-            ) : null}
-            {project.demoUrl ? (
-              <span className="inline-flex items-center gap-1.5">
-                <Link2 className="h-3.5 w-3.5" />
-                Demo
+              <span>
+                {project.githubUrl ? <Code2 aria-hidden="true" /> : <FileText aria-hidden="true" />}
+                {project.githubUrl ? "GitHub" : "项目档案"}
+                <ExternalLink aria-hidden="true" className="project-folder-external" />
               </span>
-            ) : null}
+              <span>
+                {project.demoUrl ? <Globe2 aria-hidden="true" /> : <FileText aria-hidden="true" />}
+                {project.demoUrl ? "在线预览" : "查看档案"}
+                <ArrowUpRight aria-hidden="true" className="project-folder-external" />
+              </span>
+            </footer>
           </div>
         </div>
-      </Card>
-    </Link>
+      </Link>
+    </article>
   );
 }

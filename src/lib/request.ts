@@ -23,20 +23,10 @@ export class ApiError extends Error {
 const SERVER_FALLBACK_API_BASE_URL = "http://localhost:8080";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
-const ENABLE_MOCK = process.env.NEXT_PUBLIC_ENABLE_MOCK !== "false";
-const ALLOW_BUILD_FALLBACK = process.env.STUDY_BLOG_BUILD_PHASE === "production-build";
-
-function shouldUseBuildFallback(error: unknown) {
-  if (!ALLOW_BUILD_FALLBACK) {
-    return false;
-  }
-
-  if (!(error instanceof ApiError)) {
-    return true;
-  }
-
-  return error.status >= 500;
-}
+// Production builds and runtime must never publish demo data, even if a local
+// development env file accidentally enables mock mode.
+const ENABLE_MOCK = process.env.NODE_ENV !== "production"
+  && process.env.NEXT_PUBLIC_ENABLE_MOCK === "true";
 
 function buildUrl(path: string, params?: FetchParams) {
   const baseUrl =
@@ -118,12 +108,8 @@ export async function requestWithFallback<T>(
   try {
     return await request<T>(path, options);
   } catch (error) {
-    if (ENABLE_MOCK || shouldUseBuildFallback(error)) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(`[mock fallback] ${path}`, error);
-      } else if (ALLOW_BUILD_FALLBACK) {
-        console.warn(`[build fallback] ${path}`, error);
-      }
+    if (ENABLE_MOCK) {
+      console.warn(`[mock fallback] ${path}`, error);
       return fallback;
     }
 

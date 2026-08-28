@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useMemo, useState } from "react";
 
 import { getCurrentAdmin } from "@/lib/api";
@@ -9,7 +10,7 @@ import { readStoredAdminAuth } from "@/lib/auth-storage";
 import { useAuthStore } from "@/store/auth-store";
 
 export function useRequireAdmin() {
-  const router = useRouter();
+  const { replace } = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { token, hydrated, restore, setAuth, clearAuth } = useAuthStore();
@@ -32,7 +33,7 @@ export function useRequireAdmin() {
     if (!token) {
       clearAuth();
       setChecking(false);
-      router.replace(buildAdminLoginPath(redirectTarget));
+      replace(buildAdminLoginPath(redirectTarget));
       return;
     }
 
@@ -56,13 +57,13 @@ export function useRequireAdmin() {
 
         clearAuth();
         setChecking(false);
-        router.replace(buildAdminLoginPath(redirectTarget, "session-expired"));
+        replace(buildAdminLoginPath(redirectTarget, "session-expired"));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [clearAuth, hydrated, redirectTarget, router, setAuth, token]);
+  }, [clearAuth, hydrated, redirectTarget, replace, setAuth, token]);
 
   return {
     token,

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft, Eye, Loader2, Save, Sparkles, Star } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useMemo, useState } from "react";
 
 import { AdminMarkdownPreview } from "@/components/admin/admin-markdown-preview";

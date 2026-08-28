@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { CalendarDays, Clock3, Gauge, NotebookPen } from "lucide-react";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarDays, Clock3 } from "lucide-react";
 
-import { MarkdownRenderer } from "@/components/common/markdown-renderer";
-import { TagList } from "@/components/common/tag-list";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { getDiaryById } from "@/lib/api";
+import { ArchiveDossier } from "@/components/reader/archive-dossier";
+import { getDiaryById, getDiaryNavigation } from "@/lib/api";
 import { MOOD_LABELS } from "@/lib/constants";
-import { formatDate, splitCommaText } from "@/lib/utils";
+import { extractHeadings, formatDate, splitCommaText } from "@/lib/utils";
 
 interface DiaryDetailPageProps {
   params: {
@@ -23,62 +19,55 @@ export async function generateMetadata({
   const diary = await getDiaryById(Number(params.id));
 
   return {
-    title: diary ? diary.title : "学习日记不存在",
+    title: diary?.title || "学习日记不存在",
     description: diary?.summary
   };
 }
 
 export default async function DiaryDetailPage({ params }: DiaryDetailPageProps) {
-  const diary = await getDiaryById(Number(params.id));
+  const diaryId = Number(params.id);
+  const diary = await getDiaryById(diaryId);
 
   if (!diary) {
     notFound();
   }
 
+  const navigation = await getDiaryNavigation(diaryId);
+  const mood = MOOD_LABELS[diary.mood ?? ""] ?? diary.mood ?? "平稳";
+  const tags = splitCommaText(diary.tagsText);
+  const month = formatDate(diary.diaryDate, "YYYY 年 MM 月");
+
   return (
-    <div className="detail-shell mx-auto max-w-4xl">
-      <Card className="page-panel overflow-hidden">
-        <div className="space-y-6 p-6 md:p-8">
-          <Link href="/diaries" className="detail-backlink">
-            <ArrowLeft className="h-4 w-4" />
-            返回学习日记
-          </Link>
-          <div className="grid gap-6 md:grid-cols-[1fr_220px]">
-            <div className="space-y-4">
-              <p className="detail-kicker">
-                {formatDate(diary.diaryDate, "YYYY 年 MM 月 DD 日 dddd")}
-              </p>
-              <h1 className="detail-title">{diary.title}</h1>
-              <p className="detail-summary">{diary.summary}</p>
-              <TagList tags={splitCommaText(diary.tagsText)} />
-            </div>
-            <div className="page-note-panel">
-              <p className="page-note-title">今日状态</p>
-              <div className="page-note-copy mt-4 space-y-3">
-                <p className="inline-flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" />
-                  {MOOD_LABELS[diary.mood ?? ""] ?? diary.mood ?? "平稳"}
-                </p>
-                <p className="inline-flex items-center gap-2">
-                  <Clock3 className="h-4 w-4" />
-                  学习时长 {diary.studyHours ?? 0} h
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="page-panel p-6 md:p-9">
-        <MarkdownRenderer content={diary.contentMd} />
-      </Card>
-
-      <Link href="/diaries">
-        <Button variant="secondary" className="page-button-text">
-          <ArrowLeft className="h-4 w-4" />
-          返回列表
-        </Button>
-      </Link>
-    </div>
+    <ArchiveDossier
+      kind="diary"
+      sectionNumber="02"
+      recordNumber={`D-${String(diary.id).padStart(3, "0")}`}
+      dossierLabel="Diary dossier"
+      kickerLabel="Diary record"
+      kickerValue={formatDate(diary.diaryDate, "dddd")}
+      kickerIcon={NotebookPen}
+      title={diary.title}
+      summary={diary.summary}
+      backHref="/diaries"
+      backLabel="返回学习日记"
+      breadcrumbs={[
+        { label: "学习日记", href: "/diaries" },
+        { label: month, href: `/diaries?month=${formatDate(diary.diaryDate, "YYYY-MM")}` }
+      ]}
+      indexLabel="Diary index"
+      contentLabel="Diary file / 学习日记正文"
+      facts={[
+        { label: "Date", value: formatDate(diary.diaryDate, "YYYY.MM.DD"), icon: CalendarDays },
+        { label: "Mood", value: mood, icon: Gauge },
+        { label: "Study time", value: `${diary.studyHours ?? 0} h`, icon: Clock3 }
+      ]}
+      tags={tags.map((tag) => ({ label: tag }))}
+      content={diary.contentMd}
+      headings={extractHeadings(diary.contentMd)}
+      previous={navigation.prev ? { label: navigation.prev.title, href: `/diaries/${navigation.prev.id}` } : null}
+      next={navigation.next ? { label: navigation.next.title, href: `/diaries/${navigation.next.id}` } : null}
+      previousLabel="上一篇日记"
+      nextLabel="下一篇日记"
+    />
   );
 }

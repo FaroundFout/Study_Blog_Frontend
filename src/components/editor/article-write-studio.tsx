@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import dayjs from "dayjs";
 import {
   ArrowLeft,
@@ -31,12 +31,18 @@ import {
   adminSelectClassName,
   looksLikeImage
 } from "@/components/admin/admin-page-kit";
+import { LoadingSkeleton } from "@/components/common/loading-skeleton";
+import {
+  UploadProgressBar,
+  type UploadProgressState
+} from "@/components/common/upload-progress-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useRequireAdmin } from "@/hooks/use-require-admin";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import {
   createAdminArticle,
   getAdminArticleById,
@@ -373,22 +379,24 @@ function StudioSkeleton() {
   return (
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 md:px-6 xl:px-8">
       <div className="mx-auto max-w-[1460px] space-y-6">
-        <Card className="animate-pulse space-y-5 p-6 dark:border-white/8 dark:bg-[#0e1628]/94">
-          <div className="h-5 w-32 rounded-full bg-accent/80" />
-          <div className="h-12 w-80 rounded-[1rem] bg-accent/80" />
+        <Card className="space-y-5 p-6 dark:border-white/8 dark:bg-[#0e1628]/94">
+          <LoadingSkeleton className="h-5 w-32 rounded-full" />
+          <LoadingSkeleton className="h-12 w-80 rounded-[1rem]" />
         </Card>
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.55fr)_360px]">
-          <Card className="animate-pulse space-y-4 p-6 dark:border-white/8 dark:bg-[#0e1628]/94">
+          <Card className="space-y-4 p-6 dark:border-white/8 dark:bg-[#0e1628]/94">
             <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="h-14 rounded-[1rem] bg-accent/80" />
-              <div className="h-14 rounded-[1rem] bg-accent/80" />
+              <LoadingSkeleton className="h-14 rounded-[1rem]" />
+              <LoadingSkeleton className="h-14 rounded-[1rem]" />
             </div>
-            <div className="h-[620px] rounded-[1.6rem] bg-accent/70" />
+            <LoadingSkeleton className="h-[620px] rounded-[1.6rem]" />
           </Card>
           <div className="space-y-6">
-            <Card className="animate-pulse h-[260px] p-6 dark:border-white/8 dark:bg-[#0e1628]/94" />
-            <Card className="animate-pulse h-[320px] p-6 dark:border-white/8 dark:bg-[#0e1628]/94" />
-            <Card className="animate-pulse h-[320px] p-6 dark:border-white/8 dark:bg-[#0e1628]/94" />
+            {[260, 320, 320].map((height, index) => (
+              <Card key={`${height}-${index}`} className="p-6 dark:border-white/8 dark:bg-[#0e1628]/94">
+                <LoadingSkeleton height={height - 48} className="rounded-[1.4rem]" />
+              </Card>
+            ))}
           </div>
         </div>
       </div>
@@ -409,10 +417,15 @@ export function ArticleWriteStudio({
   const [tags, setTags] = useState<Tag[]>([]);
   const [assetItems, setAssetItems] = useState<EditorAssetItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isDirty, markSaved } = useUnsavedChanges(form, ready && !loading);
   const [assetsLoading, setAssetsLoading] = useState(true);
   const [savingState, setSavingState] = useState<ArticleStatus | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [assetUploading, setAssetUploading] = useState(false);
+  const [bundleUploading, setBundleUploading] = useState(false);
+  const [coverProgress, setCoverProgress] = useState<UploadProgressState | null>(null);
+  const [assetProgress, setAssetProgress] = useState<UploadProgressState | null>(null);
+  const [bundleProgress, setBundleProgress] = useState<UploadProgressState | null>(null);
   const [notice, setNotice] = useState<{
     tone: "info" | "success" | "error";
     text: string;
@@ -427,9 +440,11 @@ export function ArticleWriteStudio({
   const contentSelectionRef = useRef<{ start: number; end: number } | null>(null);
 
   const isEditing = articleId !== undefined;
+  const loadedArticleRef = useRef<number | "new" | null>(null);
 
   useEffect(() => {
-    if (!ready || !token) {
+    const articleKey = articleId ?? "new";
+    if (!ready || !token || loadedArticleRef.current === articleKey) {
       return;
     }
 
@@ -450,14 +465,18 @@ export function ArticleWriteStudio({
         setTags(tagItems);
 
         if (article) {
-          setForm(mapArticleToForm(article));
+          const loadedForm = mapArticleToForm(article);
+          setForm(loadedForm);
+          markSaved(loadedForm);
           setOriginalSlug(article.slug);
           setSlugEdited(true);
         } else {
           setForm(emptyFormState);
+          markSaved(emptyFormState);
           setOriginalSlug("");
           setSlugEdited(false);
         }
+        loadedArticleRef.current = articleKey;
       })
       .catch((error) => {
         if (cancelled) {
@@ -478,7 +497,7 @@ export function ArticleWriteStudio({
     return () => {
       cancelled = true;
     };
-  }, [articleId, ready, token]);
+  }, [articleId, markSaved, ready, token]);
 
   const loadAssets = useCallback(async (silent = false) => {
     if (!token) {
@@ -637,18 +656,44 @@ export function ArticleWriteStudio({
 
     setCoverUploading(true);
     setNotice({ tone: "info", text: `正在上传封面 ${file.name}...` });
+    setCoverProgress({
+      fileName: file.name,
+      progress: { loaded: 0, total: file.size, percent: 0 },
+      status: "uploading"
+    });
 
     try {
       const payload = await uploadAdminFile(token, file, {
-        directory: ARTICLE_COVER_DIRECTORY
+        directory: ARTICLE_COVER_DIRECTORY,
+        onProgress: (progress) => {
+          setCoverProgress((current) => ({
+            fileName: file.name,
+            progress,
+            status: current?.status === "retrying" ? "retrying" : "uploading"
+          }));
+        },
+        onAuthRetry: () => {
+          setNotice({ tone: "info", text: "会话已刷新，正在重新上传封面。" });
+          setCoverProgress((current) => ({
+            fileName: file.name,
+            progress: current?.progress ?? { loaded: 0, total: file.size, percent: 0 },
+            status: "retrying"
+          }));
+        }
       });
       setForm((current) => ({
         ...current,
         coverImage: payload.fileUrl
       }));
       prependAsset(toEditorAsset(payload));
+      setCoverProgress((current) => current ? {
+        ...current,
+        progress: { ...current.progress, percent: 100 },
+        status: "success"
+      } : null);
       setNotice({ tone: "success", text: `${payload.originalName} 已设置为封面。` });
     } catch (error) {
+      setCoverProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "封面上传失败。"
@@ -667,16 +712,42 @@ export function ArticleWriteStudio({
 
     setAssetUploading(true);
     setNotice({ tone: "info", text: `正在上传图片 ${file.name}...` });
+    setAssetProgress({
+      fileName: file.name,
+      progress: { loaded: 0, total: file.size, percent: 0 },
+      status: "uploading"
+    });
 
     try {
       const payload = await uploadAdminFile(token, file, {
-        directory: ARTICLE_IMAGE_DIRECTORY
+        directory: ARTICLE_IMAGE_DIRECTORY,
+        onProgress: (progress) => {
+          setAssetProgress((current) => ({
+            fileName: file.name,
+            progress,
+            status: current?.status === "retrying" ? "retrying" : "uploading"
+          }));
+        },
+        onAuthRetry: () => {
+          setNotice({ tone: "info", text: "会话已刷新，正在重新上传正文图片。" });
+          setAssetProgress((current) => ({
+            fileName: file.name,
+            progress: current?.progress ?? { loaded: 0, total: file.size, percent: 0 },
+            status: "retrying"
+          }));
+        }
       });
       const asset = toEditorAsset(payload);
       prependAsset(asset);
       insertIntoMarkdown(`${buildImageMarkdown(payload.fileUrl, payload.originalName)}\n`);
+      setAssetProgress((current) => current ? {
+        ...current,
+        progress: { ...current.progress, percent: 100 },
+        status: "success"
+      } : null);
       setNotice({ tone: "success", text: `${payload.originalName} 已上传并插入正文。` });
     } catch (error) {
+      setAssetProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "图片上传失败。"
@@ -693,6 +764,9 @@ export function ArticleWriteStudio({
     if (!markdownFiles.length) {
       return;
     }
+
+    setBundleUploading(true);
+    setBundleProgress(null);
 
     try {
       if (markdownFiles.length > 1) {
@@ -723,6 +797,28 @@ export function ArticleWriteStudio({
         const uploadUrlByFileKey = new Map<string, string>();
         const resolvedReferenceMap = new Map<string, string>();
         const uploadedAssets: EditorAssetItem[] = [];
+        const matchedFilesByKey = new Map<string, File>();
+
+        localImageReferences.forEach((reference) => {
+          const matchedAsset = assetLookup.get(reference);
+          if (matchedAsset) {
+            matchedFilesByKey.set(matchedAsset.fileKey, matchedAsset.file);
+          }
+        });
+
+        const totalUploadBytes = Array.from(matchedFilesByKey.values()).reduce(
+          (total, file) => total + file.size,
+          0,
+        );
+        let completedUploadBytes = 0;
+
+        if (totalUploadBytes > 0) {
+          setBundleProgress({
+            fileName: `${markdownFile.name} · ${matchedFilesByKey.size} 张配套图片`,
+            progress: { loaded: 0, total: totalUploadBytes, percent: 0 },
+            status: "uploading"
+          });
+        }
 
         for (const reference of localImageReferences) {
           const matchedAsset = assetLookup.get(reference);
@@ -733,12 +829,50 @@ export function ArticleWriteStudio({
 
           let uploadedUrl = uploadUrlByFileKey.get(matchedAsset.fileKey);
           if (!uploadedUrl) {
+            const completedBeforeCurrentFile = completedUploadBytes;
             const payload = await uploadAdminFile(token, matchedAsset.file, {
-              directory: ARTICLE_IMAGE_DIRECTORY
+              directory: ARTICLE_IMAGE_DIRECTORY,
+              onProgress: (progress) => {
+                const currentFileLoaded = progress.percent === null
+                  ? Math.min(progress.loaded, matchedAsset.file.size)
+                  : matchedAsset.file.size * (progress.percent / 100);
+                const loaded = Math.min(
+                  totalUploadBytes,
+                  completedBeforeCurrentFile + currentFileLoaded,
+                );
+                const percent = totalUploadBytes > 0
+                  ? Math.min(99, Math.floor((loaded / totalUploadBytes) * 100))
+                  : null;
+
+                setBundleProgress((current) => ({
+                  fileName: `${markdownFile.name} · ${matchedFilesByKey.size} 张配套图片`,
+                  progress: { loaded, total: totalUploadBytes, percent },
+                  status: current?.status === "retrying" ? "retrying" : "uploading"
+                }));
+              },
+              onAuthRetry: () => {
+                setNotice({ tone: "info", text: "会话已刷新，正在重新上传配套图片。" });
+                setBundleProgress((current) => current ? {
+                  ...current,
+                  status: "retrying"
+                } : null);
+              }
             });
             uploadedUrl = payload.fileUrl;
             uploadUrlByFileKey.set(matchedAsset.fileKey, uploadedUrl);
             uploadedAssets.push(toEditorAsset(payload));
+            completedUploadBytes += matchedAsset.file.size;
+            setBundleProgress((current) => current ? {
+              ...current,
+              progress: {
+                loaded: completedUploadBytes,
+                total: totalUploadBytes,
+                percent: totalUploadBytes > 0
+                  ? Math.min(99, Math.floor((completedUploadBytes / totalUploadBytes) * 100))
+                  : null
+              },
+              status: "uploading"
+            } : null);
           }
 
           resolvedReferenceMap.set(reference, uploadedUrl);
@@ -747,6 +881,15 @@ export function ArticleWriteStudio({
         if (uploadedAssets.length) {
           uploadedCount = uploadedAssets.length;
           setAssetItems((current) => mergeAssets(current, uploadedAssets));
+          setBundleProgress((current) => current ? {
+            ...current,
+            progress: {
+              loaded: totalUploadBytes,
+              total: totalUploadBytes,
+              percent: 100
+            },
+            status: "success"
+          } : null);
         }
 
         nextMarkdown = replaceLocalMarkdownImages(
@@ -780,11 +923,13 @@ export function ArticleWriteStudio({
         text: noticeParts.join(" ")
       });
     } catch (error) {
+      setBundleProgress((current) => current ? { ...current, status: "error" } : null);
       setNotice({
         tone: "error",
         text: error instanceof Error ? error.message : "Markdown 导入失败，请检查所选文件后重试。"
       });
     } finally {
+      setBundleUploading(false);
       event.target.value = "";
     }
   };
@@ -857,7 +1002,7 @@ export function ArticleWriteStudio({
   });
 
   const handleSave = async (nextStatus: ArticleStatus) => {
-    if (!token) {
+    if (!token || savingState || coverUploading || assetUploading || bundleUploading) {
       return;
     }
 
@@ -884,22 +1029,23 @@ export function ArticleWriteStudio({
 
     try {
       const payload = buildPayload(nextStatus);
+      const savedForm: EditorFormState = {
+        ...form,
+        status: nextStatus,
+        publishTime: nextStatus === "published" && !form.publishTime
+          ? dayjs(payload.publishTime).format("YYYY-MM-DDTHH:mm")
+          : form.publishTime
+      };
 
       if (isEditing && articleId) {
         await updateAdminArticle(token, articleId, payload);
+        markSaved(savedForm);
+        setForm(savedForm);
         try {
           await revalidateArticlePublicContent([originalSlug, payload.slug]);
         } catch (revalidateError) {
           console.error("Failed to revalidate article pages after update.", revalidateError);
         }
-        setForm((current) => ({
-          ...current,
-          status: nextStatus,
-          publishTime:
-            nextStatus === "published" && !current.publishTime
-              ? dayjs().format("YYYY-MM-DDTHH:mm")
-              : current.publishTime
-        }));
         setOriginalSlug(payload.slug);
         setNotice({
           tone: "success",
@@ -907,6 +1053,8 @@ export function ArticleWriteStudio({
         });
       } else {
         const createdId = await createAdminArticle(token, payload);
+        markSaved(savedForm);
+        setForm(savedForm);
         try {
           await revalidateArticlePublicContent([payload.slug]);
         } catch (revalidateError) {
@@ -936,7 +1084,7 @@ export function ArticleWriteStudio({
     <div className="relative left-1/2 w-screen -translate-x-1/2 px-4 pb-8 md:px-6 xl:px-8">
       <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_14%_20%,rgba(115,221,209,0.16),transparent_34%),radial-gradient(circle_at_86%_18%,rgba(249,218,122,0.14),transparent_28%),radial-gradient(circle_at_52%_72%,rgba(86,140,240,0.1),transparent_28%)] dark:bg-[radial-gradient(circle_at_14%_20%,rgba(52,211,196,0.14),transparent_34%),radial-gradient(circle_at_86%_18%,rgba(245,158,11,0.08),transparent_28%),radial-gradient(circle_at_52%_72%,rgba(56,189,248,0.07),transparent_28%)]" />
 
-      <div className="mx-auto max-w-[1460px] space-y-6">
+      <fieldset disabled={savingState !== null} className="mx-auto min-w-0 max-w-[1460px] space-y-6">
         <Card className="overflow-hidden border border-white/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(247,245,238,0.92))] p-5 shadow-[0_24px_54px_-40px_rgba(58,67,92,0.32)] dark:border-white/8 dark:bg-[linear-gradient(135deg,rgba(11,18,32,0.97),rgba(15,24,39,0.94))] dark:shadow-[0_34px_72px_-42px_rgba(2,6,23,0.92)] md:p-6">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="space-y-3">
@@ -973,11 +1121,13 @@ export function ArticleWriteStudio({
                 multiple
                 className="hidden"
                 onChange={handleMarkdownBundleImport || handleImportMarkdown}
+                disabled={bundleUploading}
               />
               <Button
                 type="button"
                 variant="secondary"
                 onClick={() => importInputRef.current?.click()}
+                disabled={bundleUploading}
               >
                 <FileDown className="h-4 w-4" />
                 导入 MD
@@ -993,7 +1143,7 @@ export function ArticleWriteStudio({
               <Button
                 type="button"
                 variant="secondary"
-                disabled={savingState !== null}
+                disabled={savingState !== null || coverUploading || assetUploading || bundleUploading}
                 onClick={() => handleSave("draft")}
               >
                 {savingState === "draft" ? (
@@ -1005,7 +1155,7 @@ export function ArticleWriteStudio({
               </Button>
               <Button
                 type="button"
-                disabled={savingState !== null}
+                disabled={savingState !== null || coverUploading || assetUploading || bundleUploading}
                 onClick={() => handleSave("published")}
               >
                 {savingState === "published" ? (
@@ -1017,6 +1167,8 @@ export function ArticleWriteStudio({
               </Button>
             </div>
           </div>
+          {isDirty ? <p className="mt-5 text-sm text-muted-foreground">有未保存的修改</p> : null}
+          {bundleProgress ? <UploadProgressBar {...bundleProgress} className="mt-5" /> : null}
           {notice ? <AdminNotice tone={notice.tone} className="mt-5">{notice.text}</AdminNotice> : null}
         </Card>
 
@@ -1098,6 +1250,7 @@ export function ArticleWriteStudio({
                   accept="image/*"
                   className="hidden"
                   onChange={handleCoverUpload}
+                  disabled={coverUploading}
                 />
                 <Button
                   type="button"
@@ -1106,14 +1259,12 @@ export function ArticleWriteStudio({
                   onClick={() => coverInputRef.current?.click()}
                   disabled={coverUploading}
                 >
-                  {coverUploading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Upload className="h-3.5 w-3.5" />
-                  )}
+                  <Upload className="h-3.5 w-3.5" />
                   上传
                 </Button>
               </div>
+
+              {coverProgress ? <UploadProgressBar {...coverProgress} /> : null}
 
               <div className="overflow-hidden rounded-[1.5rem] border border-border/65 bg-background/70 dark:border-white/8 dark:bg-white/[0.04]">
                 <div className="flex h-56 items-center justify-center bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(242,247,244,0.92))] dark:bg-[linear-gradient(135deg,rgba(18,29,48,0.88),rgba(10,18,31,0.94))]">
@@ -1313,6 +1464,7 @@ export function ArticleWriteStudio({
                     accept="image/*"
                     className="hidden"
                     onChange={handleAssetUpload}
+                    disabled={assetUploading}
                   />
                   <Button
                     type="button"
@@ -1321,11 +1473,7 @@ export function ArticleWriteStudio({
                     onClick={() => assetInputRef.current?.click()}
                     disabled={assetUploading}
                   >
-                    {assetUploading ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <FileUp className="h-3.5 w-3.5" />
-                    )}
+                    <FileUp className="h-3.5 w-3.5" />
                     上传
                   </Button>
                   <Button
@@ -1340,6 +1488,8 @@ export function ArticleWriteStudio({
                   </Button>
                 </div>
               </div>
+
+              {assetProgress ? <UploadProgressBar {...assetProgress} /> : null}
 
               <div className="flex gap-2">
                 <Input
@@ -1423,7 +1573,7 @@ export function ArticleWriteStudio({
             </Card>
           </div>
         </div>
-      </div>
+      </fieldset>
 
       <AdminModal
         open={previewOpen}
